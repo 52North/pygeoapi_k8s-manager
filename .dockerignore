@@ -1,0 +1,10 @@
+.coverage
+.coveragerc
+.git
+.github
+.gitignore
+kind.yaml
+.pytest_cache
+README.md
+.venv/
+.vscode

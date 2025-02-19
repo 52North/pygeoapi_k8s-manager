@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygeoapi_k8s_manager"
+version = "0.1.0"
+authors = [{ name = "52N authors", email = "info@52north.org" }]
+description = "pygeoapi_k8s_manager"
+readme = "README.md"
+license = { file="LICENSE" }
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["."]
