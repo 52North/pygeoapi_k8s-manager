@@ -320,3 +320,14 @@ def test_update_job_returns_not_implemented_error(manager):
 def test_execute_job(manager, process_id):
     # TODO: Continue work here
     assert False
+
+
+@pytest.fixture
+def manager_with_log_level():
+    return KubernetesManager({"name": "test-manager", "mode": "test", "logging": { "kubernetes":"INFO", "boto3":"CRITICAL"}})
+
+def test_manager_log_level_configuration(manager_with_log_level):
+    manager_with_log_level
+    import logging
+    assert logging.getLogger('kubernetes').getEffectiveLevel() == logging.INFO
+    assert logging.getLogger('boto3').getEffectiveLevel() == logging.CRITICAL

@@ -18,10 +18,12 @@ server:
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
     manager:
        name: pygeoapi_kubernetes_manager.manager.KubernetesManager
+       logging:
+           kubernetes: INFO
     admin: false # enable admin api
 
 logging:
-    level: ERROR
+    level: DEBUG
     #logfile: /tmp/pygeoapi.log
 
 metadata:

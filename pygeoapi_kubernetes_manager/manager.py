@@ -99,6 +99,11 @@ class KubernetesManager(BaseManager):
                 k8s_config.load_incluster_config()
 
             self.namespace = current_namespace()
+        # set logging for dependencies
+        if manager_def.get('logging'):
+            for lib, level in manager_def.get('logging').items():
+                LOGGER.debug(f"Set log level '{level}' for library '{lib}")
+                logging.getLogger(lib).setLevel(getattr(logging, level.upper(), logging.WARNING))
 
     def add_job(self, job_metadata):
         # For k8s, add_job is implied by executing the job
