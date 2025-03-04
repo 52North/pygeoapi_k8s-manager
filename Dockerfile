@@ -12,6 +12,16 @@ LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.title="52°North pygeoapi k8s-manager" \
       org.opencontainers.image.description="Extends pygeoapi by a manager for kubernetes jobs and a process to execute any container image on a cluster"
 
+#
+# Fight OS CVEs
+#
+RUN apt-get update \
+&& apt-get upgrade -y \
+&& apt-get dist-upgrade -y \
+&& apt-get clean \
+&& apt autoremove -y  \
+&& rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
 
