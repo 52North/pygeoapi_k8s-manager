@@ -26,10 +26,22 @@ We are using a kind based k8s cluster for testing.
 
 ## Container
 
-Build the latest container image with docker using the following command:
+**Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.1 REGISTRY=swr.eu-de.otc.t-systems.com IMAGE=n52/pygeoapi-k8s-manager; docker build -t "${REGISTRY}/${IMAGE}:latest" -t "${REGISTRY}/${IMAGE}:${VERSION}" --build-arg GIT_COMMIT=$(git rev-parse -q --verify HEAD) --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") .
+VERSION=0.1 \
+REGISTRY=swr.eu-de.otc.t-systems.com \
+IMAGE=n52/pygeoapi-k8s-manager \
+; \
+docker build \
+  -t "${REGISTRY}/${IMAGE}:latest" \
+  -t "${REGISTRY}/${IMAGE}:${VERSION}" \
+  --build-arg GIT_COMMIT=$(git rev-parse -q --verify HEAD) \
+  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+  --build-arg GIT_TAG=$(git describe --tags) \
+  --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) \
+  .
+```
 ```
 
 Upload to registry after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):

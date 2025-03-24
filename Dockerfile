@@ -31,11 +31,26 @@ COPY . .
 RUN python3 -m pip install . \
  && rm -rv /k8s-manager
 
-ARG GIT_COMMIT
 WORKDIR /pygeoapi
+
+ARG GIT_COMMIT=commit-undefined
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 
-ARG BUILD_DATE
+ARG BUILD_DATE=build-date-undefined
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
 COPY pygeoapi-config.yaml local.config.yml
+
+# Add build info to deployed version available via pygeoapi-context-path/static/info.txt
+ARG INFO_FILE=pygeoapi/static/info.txt
+ARG GIT_BRANCH=branch-undefined
+ARG GIT_TAG=tag-undefined
+RUN touch "${INFO_FILE}" \
+ && echo "Build" > "$INFO_FILE" \
+ && echo "-----------------------------------------------------" >> "$INFO_FILE" \
+ && echo "timestamp   : $BUILD_DATE" >> "$INFO_FILE" \
+ && echo "git hash    : $GIT_COMMIT" >> "$INFO_FILE" \
+ && echo "git branch  : $GIT_BRANCH" >> "$INFO_FILE" \
+ && echo "git tag     : $GIT_TAG" >> "$INFO_FILE" \
+ && echo "pygeoapi    : $(pygeoapi --version)" >> "$INFO_FILE" \
+ && cat ${INFO_FILE}
