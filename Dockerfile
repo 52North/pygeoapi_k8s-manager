@@ -16,11 +16,11 @@ LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
 # Fight OS CVEs
 #
 RUN apt-get update \
-&& apt-get upgrade -y \
-&& apt-get dist-upgrade -y \
-&& apt-get clean \
-&& apt autoremove -y  \
-&& rm -rf /var/lib/apt/lists/*
+ && apt-get upgrade -y \
+ && apt-get dist-upgrade -y \
+ && apt-get clean \
+ && apt autoremove -y  \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /k8s-manager
 
