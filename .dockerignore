@@ -8,3 +8,5 @@ kind.yaml
 README.md
 .venv/
 .vscode
+.dockerignore
+Dockerfile

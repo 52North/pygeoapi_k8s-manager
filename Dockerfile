@@ -46,11 +46,26 @@ ARG INFO_FILE=pygeoapi/static/info.txt
 ARG GIT_BRANCH=branch-undefined
 ARG GIT_TAG=tag-undefined
 RUN touch "${INFO_FILE}" \
- && echo "Build" > "$INFO_FILE" \
- && echo "-----------------------------------------------------" >> "$INFO_FILE" \
- && echo "timestamp   : $BUILD_DATE" >> "$INFO_FILE" \
- && echo "git hash    : $GIT_COMMIT" >> "$INFO_FILE" \
- && echo "git branch  : $GIT_BRANCH" >> "$INFO_FILE" \
- && echo "git tag     : $GIT_TAG" >> "$INFO_FILE" \
- && echo "pygeoapi    : $(pygeoapi --version)" >> "$INFO_FILE" \
+ && echo "BUILD INFO" > "$INFO_FILE" \
+ && echo "timestamp: $BUILD_DATE" >> "$INFO_FILE" \
+ && echo "git hash: $GIT_COMMIT" >> "$INFO_FILE" \
+ && echo "git branch: $GIT_BRANCH" >> "$INFO_FILE" \
+ && echo "git tag: $GIT_TAG" >> "$INFO_FILE" \
+ && echo "pygeoapi: $(pygeoapi --version)" >> "$INFO_FILE" \
  && cat ${INFO_FILE}
+
+RUN sed -i '/{{ version }}/a \
+ \(<a title="info" id="showInfo" href="{{ config["server"]["url"] }}/static/info.txt">info</a>\)\
+ <script>\
+ document.getElementById("showInfo").addEventListener("click", function(event) {\
+   event.preventDefault();\
+   fetch("{{ config["server"]["url"] }}/static/info.txt")\
+     .then(response => response.text())\
+     .then(data => {\
+       alert(data);\
+     })\
+     .catch(error => {\
+       alert("Error loading the file: " + error);\
+     });\
+ });\
+ </script>' /pygeoapi/pygeoapi/templates/_base.html
