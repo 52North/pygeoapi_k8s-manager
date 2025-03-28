@@ -31,8 +31,10 @@ import pytest
 
 from pygeoapi_kubernetes_manager.manager import (
     KubernetesManager,
+    KubernetesProcessor,
     get_completion_time,
     job_message,
+    job_from_k8s,
 )
 
 from pygeoapi_kubernetes_manager.util import format_job_name, format_annotation_key
@@ -209,6 +211,7 @@ def test_manager_get_jobs(manager, k8s_job_list, k8s_pod_list, process_id):
     assert job_1["process_id"] == process_id
     assert job_1["finished"] == "2025-01-19T15:52:01.000000Z"
     assert job_1["updated"] == job_1["finished"]
+    assert job_1["mimetype"] == "application/json"
 
     # test job #2
     job_2 = jobs["jobs"][1]
@@ -220,6 +223,7 @@ def test_manager_get_jobs(manager, k8s_job_list, k8s_pod_list, process_id):
     assert job_2["process_id"] == process_id
     assert job_2["finished"] == "2025-01-12T13:42:03.000000Z"
     assert job_2["updated"] == job_2["finished"]
+    assert job_2["mimetype"] == "application/json"
 
 
 def test_manager_get_jobs_offset(manager, k8s_job_list, k8s_pod_list, process_id):
@@ -243,6 +247,7 @@ def test_manager_get_jobs_offset(manager, k8s_job_list, k8s_pod_list, process_id
     assert job_1["process_id"] == process_id
     assert job_1["finished"] == "2025-01-12T13:42:03.000000Z"
     assert job_1["updated"] == job_1["finished"]
+    assert job_1["mimetype"] == "application/json"
 
 
 def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id):
@@ -265,6 +270,7 @@ def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id)
     assert job_1["process_id"] == process_id
     assert job_1["finished"] == "2025-01-19T15:52:01.000000Z"
     assert job_1["updated"] == job_1["finished"]
+    assert job_1["mimetype"] == "application/json"
 
 
 def test_get_completion_time_failed_job(k8s_job_3_failed):
@@ -364,8 +370,44 @@ def test_execute_job(manager, process_id):
 def manager_with_log_level():
     return KubernetesManager({"name": "test-manager", "mode": "test", "logging": { "kubernetes":"INFO", "boto3":"CRITICAL"}})
 
+
 def test_manager_log_level_configuration(manager_with_log_level):
     manager_with_log_level
     import logging
     assert logging.getLogger('kubernetes').getEffectiveLevel() == logging.INFO
     assert logging.getLogger('boto3').getEffectiveLevel() == logging.CRITICAL
+
+
+@pytest.fixture
+def k8s_job_without_mimetype_annotation(process_id):
+    return V1Job(
+        metadata=V1ObjectMeta(
+            name=format_job_name("test-2"),
+            annotations={
+                format_annotation_key(
+                    "started"
+                ): "2025-01-19T15:42:01.000000Z",
+                format_annotation_key("identifier"): "identifier-2",
+                format_annotation_key("process_id"): process_id,
+            },
+        ),
+        status=V1JobStatus(
+            succeeded=1, completion_time=datetime.datetime.fromisoformat("2025-01-19T15:52:01.000000Z")
+        ),
+        spec=V1JobSpec(
+            selector=V1LabelSelector(match_labels={"test-key-2": "test-value-2"}),
+            template=V1JobTemplateSpec(),
+        ),
+    )
+
+
+def test_job_get_default_mimetype_if_annotation_is_missing(k8s_job_without_mimetype_annotation):
+    job = job_from_k8s(k8s_job_without_mimetype_annotation, "test-message")
+
+    assert job["mimetype"] == "application/json"
+
+
+def test_kubernetes_processor_sets_mimetype():
+    processor = KubernetesProcessor(process_metadata={},processor_def={"name":"test-name"})
+
+    assert processor.mimetype == "application/json"

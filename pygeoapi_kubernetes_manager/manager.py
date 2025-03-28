@@ -89,6 +89,11 @@ class KubernetesProcessor(BaseProcessor):
         pod_spec: k8s_client.V1PodSpec
         extra_annotations: dict[str, str]
 
+    def __init__(self, processor_def, process_metadata):
+        super().__init__(processor_def, process_metadata)
+
+        self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
+
     def create_job_pod_spec(
         self,
         data: dict,
@@ -322,6 +327,7 @@ class KubernetesManager(BaseManager):
                 "process_id": p.metadata.get("id"),
                 K8S_ANNOTATION_KEY_JOB_START: now_str(),
                 K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
+                "mimetype": p.mimetype if p.mimetype else "application/json",
                 **job_pod_spec.extra_annotations,
             }
 
@@ -418,6 +424,8 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
         if (parsed_key := parse_annotation_key(orig_key))
     }
     LOGGER.debug(f"extracted pygeoapi annotations: '{metadata_from_annotation}'")
+    if "mimetype" not in metadata_from_annotation:
+        metadata_from_annotation["mimetype"] = "application/json"
 
     try:
         metadata_from_annotation["parameters"] = json.dumps(
@@ -452,8 +460,6 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
             K8S_ANNOTATION_KEY_JOB_END: completion_time,
             # NOTE: this is passed as string as compatibility with base manager
             "status": status.value,
-            # FIXME this results in a third link to result of job in type None
-            "mimetype": None,  # we don't know this in general
             "message": message if message else "",
             "progress": default_progress,
             **metadata_from_annotation,
