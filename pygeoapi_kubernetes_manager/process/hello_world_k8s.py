@@ -30,6 +30,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+from dataclasses import dataclass
 import json
 import logging
 
@@ -110,15 +111,32 @@ PROCESS_METADATA = {
 
 
 class HelloWorldK8sProcessor(KubernetesProcessor):
-    """Hello World K8s Processor example"""
+    """Hello World K8s Processor example
+
+    Test via
+
+        curl -X 'POST' \
+            'http://localhost/processes/hello-world-k8s/execution' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "inputs": {
+                    "message": "Am I in TV, now?",
+                    "name": "John Doe"
+                }
+            }'
+
+    """
+
+
+    @dataclass(frozen=True)
+    class Parameters():
+        message: str
+        name: str
+
 
     def __init__(self, processor_def: dict):
-        metadata = copy.deepcopy(PROCESS_METADATA)
-        # If the process defines this, we are basically in generic mode
-        for generic_process_key in ["id", "title", "version", "inputs"]:
-            if generic_process_value := processor_def.get(generic_process_key):
-                metadata[generic_process_key] = generic_process_value
-        super().__init__(processor_def, metadata)
+        super().__init__(processor_def, PROCESS_METADATA)
 
         self.supports_outputs = True
         self.default_image: str = processor_def["default_image"]
@@ -126,17 +144,6 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         self.image_pull_secret: str = processor_def["image_pull_secret"]
         self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
 
-    def _extra_podspec(self, requested: Any):
-        if self.tolerations:
-            extra_podspec: dict[str, Any] = {
-                "tolerations": [
-                    k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
-                ]
-            }
-        else:
-            extra_podspec = {}
-        LOGGER.debug(f"extra_podspec: '{extra_podspec}'")
-        return extra_podspec
 
     def create_job_pod_spec(self,
         data: dict,
@@ -145,12 +152,11 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         LOGGER.debug("Starting job with data %s", data)
 
         try:
-            requested = KubernetesProcessor.RequestParameters.from_dict(data)
+            requested = self.Parameters(**data)
         except (TypeError, KeyError) as e:
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
-        extra_podspec = self._extra_podspec(requested)
-
+        extra_podspec = {}
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [
                 k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
@@ -181,9 +187,11 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
                 "parameters" : json.dumps({
                     "name": requested.name,
                     "message": requested.message,
-                })
+                }),
+                "job-name": job_name,
             },
         )
+
 
     def __repr__(self):
         return f'<HelloWorldProcessor> {self.name}'
