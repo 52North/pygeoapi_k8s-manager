@@ -88,7 +88,7 @@ def processor() -> GenericImageProcessor:
                 }
             },
             "default_image": "example-image",
-            "command": "test-command",
+            "command": ["test-command"],
             "mimetype": "application/json",
             "image_pull_secret": "test-image-pull-secret",
             "resources": {
@@ -119,7 +119,8 @@ def processor() -> GenericImageProcessor:
 
 
 def test_processor_def_is_parsed(processor):
-    assert processor.command == "test-command"
+    assert len(processor.command) == 1
+    assert processor.command[0] == "test-command"
     assert processor.supports_outputs == True
     assert processor.default_image == "example-image"
     assert processor.mimetype == "test-output/mimetype"
@@ -216,7 +217,8 @@ def test_create_job_pod_spec(processor, data):
 
     container = pod.containers[0]
     assert container.image == "example-image"
-    assert container.command == "test-command"
+    assert len(container.command) == 1
+    assert container.command[0] == "test-command"
 
     env = container.env
     assert len(env) == 2
