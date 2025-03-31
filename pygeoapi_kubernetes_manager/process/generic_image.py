@@ -37,6 +37,12 @@ from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
 from pygeoapi_kubernetes_manager.util import ProcessorClientError
 
 from kubernetes import client as k8s_client
+from kubernetes.client.models import (
+    V1EnvVar,
+    V1EnvVarSource,
+    V1ResourceRequirements,
+    V1SecretKeySelector,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -94,6 +100,93 @@ class GenericImageProcessor(KubernetesProcessor):
             return next(iter(metadata["outputs"].values()))["schema"]["contentMediaType"]
         else:
             return "application/json"
+
+    def _env_from_processor_spec(self) -> list[V1EnvVar]:
+        """
+        name: env-name
+        secret_name: secret-name
+        secret_key: secret-key
+        || || ||
+        \/ \/ \/
+        name: env-name
+          valueFrom:
+            secretKeyRef:
+              name: secret-name
+              key: secret-key
+
+        or
+
+        name: env-name
+        value: env-value
+        || || ||
+        \/ \/ \/
+        name: env-name
+        value: env-value
+
+        :returns list[V1EnvVar]
+        """
+        k8s_env = []
+        for env_variable in self.env:
+            if "secret_name" in env_variable.keys():
+                k8s_env.append(V1EnvVar(
+                    name=env_variable["name"],
+                    value_from=V1EnvVarSource(
+                        secret_key_ref=V1SecretKeySelector(
+                            key=env_variable["secret_key"],
+                            name=env_variable["secret_name"],
+                        ))))
+            else:
+                k8s_env.append(V1EnvVar(
+                    name=env_variable["name"],
+                    value=env_variable["value"],
+                ))
+        return k8s_env
+
+    def _res_from_processor_spec(self) -> V1ResourceRequirements:
+        return V1ResourceRequirements(
+            limits=self.resources["limits"],
+            requests=self.resources["requests"])
+
+    def create_job_pod_spec(self,
+        data: dict,
+        job_name: str
+    ) -> KubernetesProcessor.JobPodSpec:
+        LOGGER.debug("Starting job with data %s", data)
+
+        extra_podspec = self._add_tolerations()
+
+        if self.image_pull_secret:
+            extra_podspec["image_pull_secrets"] = [
+                k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
+            ]
+
+        k8s_env = self._env_from_processor_spec()
+        k8s_res = self._res_from_processor_spec()
+
+        image_container = k8s_client.V1Container(
+            name=self.name,
+            image=self.default_image,
+            command=self.command,
+            env=k8s_env,
+            resources=k8s_res
+        )
+
+        return KubernetesProcessor.JobPodSpec(
+            pod_spec=k8s_client.V1PodSpec(
+                restart_policy="Never",
+                # NOTE: first container is used for status check
+                containers=[image_container], # + extra_config.containers,
+                # we need this to be able to terminate the sidecar container
+                # https://github.com/kubernetes/kubernetes/issues/25908
+                share_process_namespace=True,
+                **extra_podspec,
+                enable_service_links=False,
+            ),
+            extra_annotations={
+                "parameters" : json.dumps(data),
+                "job-name": job_name,
+            },
+        )
 
     def __repr__(self):
         return f'<GenericImageProcessor> {self.name}'

@@ -26,6 +26,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+import json
 import pytest
 
 from pygeoapi_kubernetes_manager.process import GenericImageProcessor
@@ -80,7 +81,7 @@ def processor() -> GenericImageProcessor:
             "default_image": "example-image",
             "command": "test-command",
             "mimetype": "application/json",
-            "image_pull_secret": "image-pull-secret",
+            "image_pull_secret": "test-image-pull-secret",
             "resources": {
                 "requests": {
                     "memory": "test-memory-request",
@@ -113,7 +114,7 @@ def test_processor_def_is_parsed(processor):
     assert processor.supports_outputs == True
     assert processor.default_image == "example-image"
     assert processor.mimetype == "test-output/mimetype"
-    assert processor.image_pull_secret == "image-pull-secret"
+    assert processor.image_pull_secret == "test-image-pull-secret"
 
     meta = processor.metadata
     assert meta["id"] == "ingestor-cds-process"
@@ -181,3 +182,41 @@ def data() -> dict:
         "input-boolean-id": False,
     }
 
+
+def test_create_job_pod_spec(processor, data):
+    spec = processor.create_job_pod_spec(data=data, job_name="test_job")
+
+    assert spec
+    assert spec.extra_annotations
+
+    annotations = spec.extra_annotations
+    assert annotations["job-name"] == "test_job"
+    assert annotations["parameters"] == json.dumps(data)
+
+    assert spec.pod_spec
+
+    pod = spec.pod_spec
+    assert pod.tolerations is None
+    assert pod.image_pull_secrets[0].name == "test-image-pull-secret"
+    assert len(pod.containers) == 1
+
+    container = pod.containers[0]
+    assert container.image == "example-image"
+    assert container.command == "test-command"
+
+    env = container.env
+    assert len(env) == 2
+    assert env[0].name == "env_from_secret_name"
+    assert env[0].value_from.secret_key_ref.name == "env_from_secret_secret_name"
+    assert env[0].value_from.secret_key_ref.key == "env_from_secret_secret_key"
+    assert env[1].name == "simple_env_name"
+    assert env[1].value == "simple_env_value"
+
+    res = container.resources
+    assert res
+    assert len(res.limits) == 2
+    assert len(res.requests) == 2
+    assert res.limits["cpu"] == "test-cpu-limit"
+    assert res.limits["memory"] == "test-memory-limit"
+    assert res.requests["cpu"] == "test-cpu-request"
+    assert res.requests["memory"] == "test-memory-request"
