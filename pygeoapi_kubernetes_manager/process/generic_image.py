@@ -40,8 +40,11 @@ from kubernetes import client as k8s_client
 from kubernetes.client.models import (
     V1EnvVar,
     V1EnvVarSource,
+    V1PersistentVolumeClaimVolumeSource,
     V1ResourceRequirements,
     V1SecretKeySelector,
+    V1Volume,
+    V1VolumeMount,
 )
 
 
@@ -85,6 +88,7 @@ class GenericImageProcessor(KubernetesProcessor):
         self.resources: dict = processor_def["resources"] if "resources" in processor_def.keys() else None
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
         self.supports_outputs: bool = True if self.mimetype else False
+        self.storage: dict = processor_def["storage"] if "storage" in processor_def.keys() else None
 
     def _output_mimetype(self, metadata: dict) -> str:
         """
@@ -152,6 +156,35 @@ class GenericImageProcessor(KubernetesProcessor):
             limits=self.resources["limits"],
             requests=self.resources["requests"])
 
+    def _volume_mounts_from_processor_spec(self) -> list[V1VolumeMount]:
+        if not self.storage:
+            return None
+        k8s_volume_mounts = []
+        for volume in self.storage:
+            k8s_volume_mounts.append(
+                V1VolumeMount(
+                    name=volume["name"],
+                    mount_path=volume["mount_path"],
+                )
+            )
+        return k8s_volume_mounts
+
+    def _volumes_from_processor_spec(self) -> list[V1Volume]:
+        if not self.storage:
+            return None
+        k8s_volumes = []
+        for volume in self.storage:
+            k8s_volumes.append(
+                V1Volume(
+                    name=volume["name"],
+                    persistent_volume_claim=
+                    V1PersistentVolumeClaimVolumeSource(
+                        claim_name=volume["persistent_volume_claim_name"]
+                    )
+                )
+            )
+        return k8s_volumes
+
     def create_job_pod_spec(self,
         data: dict,
         job_name: str
@@ -167,6 +200,8 @@ class GenericImageProcessor(KubernetesProcessor):
 
         k8s_env = self._env_from_processor_spec()
         k8s_res = self._res_from_processor_spec()
+        k8s_volume_mounts = self._volume_mounts_from_processor_spec()
+        k8s_volumes = self._volumes_from_processor_spec()
 
         image_container = k8s_client.V1Container(
             name="generic-image-processor",
@@ -174,6 +209,7 @@ class GenericImageProcessor(KubernetesProcessor):
             command=self.command,
             env=k8s_env,
             resources=k8s_res,
+            volume_mounts=k8s_volume_mounts
         )
 
         return KubernetesProcessor.JobPodSpec(
@@ -185,6 +221,7 @@ class GenericImageProcessor(KubernetesProcessor):
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
                 enable_service_links=False,
+                volumes=k8s_volumes,
                 **extra_podspec,
             ),
             extra_annotations={

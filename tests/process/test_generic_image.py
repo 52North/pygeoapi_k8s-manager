@@ -101,6 +101,13 @@ def processor() -> GenericImageProcessor:
                     "cpu": "test-cpu-limit",
                 },
             },
+            "storage": [
+                {
+                    "name": "test-storage-name",
+                    "mount_path": "test-storage-mount-path",
+                    "persistent_volume_claim_name": "test-storage-pvc-name",
+                },
+            ],
             "env": [
                 # env from secrets
                 {
@@ -183,6 +190,12 @@ def test_processor_def_is_parsed(processor):
     assert res["limits"]["cpu"] == "test-cpu-limit"
     assert res["limits"]["memory"] == "test-memory-limit"
 
+    storage = processor.storage
+    assert len(storage) == 1
+    assert storage[0]["name"] == "test-storage-name"
+    assert storage[0]["mount_path"] == "test-storage-mount-path"
+    assert storage[0]["persistent_volume_claim_name"] == "test-storage-pvc-name"
+
 
 def test_outputs_mimetype_detection(processor):
     assert processor.mimetype == "test-output/mimetype"
@@ -219,6 +232,9 @@ def test_create_job_pod_spec(processor, data):
     pod = spec.pod_spec
     assert pod.tolerations is None
     assert pod.image_pull_secrets[0].name == "test-image-pull-secret"
+    assert len(pod.volumes) == 1
+    assert pod.volumes[0].name == "test-storage-name"
+    assert pod.volumes[0].persistent_volume_claim.claim_name == "test-storage-pvc-name"
     assert len(pod.containers) == 1
 
     container = pod.containers[0]
@@ -226,6 +242,9 @@ def test_create_job_pod_spec(processor, data):
     assert len(container.command) == 1
     assert container.command[0] == "test-command"
     assert container.name == "generic-image-processor"
+    assert len(container.volume_mounts) == 1
+    assert container.volume_mounts[0].mount_path == "test-storage-mount-path"
+    assert container.volume_mounts[0].name == "test-storage-name"
 
     env = container.env
     assert len(env) == 3
@@ -253,6 +272,14 @@ def test_absence_of_image_pull_secret(processor, data):
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test_job")
 
     assert job_pod_spec.pod_spec.image_pull_secrets is None
+
+
+def test_absence_of_storage(processor, data):
+    processor.storage = None
+    job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+
+    assert job_pod_spec.pod_spec.volumes == None
+    assert job_pod_spec.pod_spec.containers[0].volume_mounts == None
 
 
 def test_absence_of_resources(processor, data):
