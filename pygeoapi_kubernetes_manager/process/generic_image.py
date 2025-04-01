@@ -81,8 +81,8 @@ class GenericImageProcessor(KubernetesProcessor):
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = processor_def["image_pull_secret"] if "image_pull_secret" in processor_def.keys() else None
-        self.env: dict = processor_def["env"]
         self.resources: dict = processor_def["resources"]
+        self.env: dict = processor_def["env"] if "env" in processor_def.keys() else {}
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
         self.supports_outputs: bool = True if self.mimetype else False
 
@@ -125,6 +125,8 @@ class GenericImageProcessor(KubernetesProcessor):
 
         :returns list[V1EnvVar]
         """
+        if not self.env:
+            return None
         k8s_env = []
         for env_variable in self.env:
             if "secret_name" in env_variable.keys():

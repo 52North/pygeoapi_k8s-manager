@@ -253,3 +253,10 @@ def test_absence_of_image_pull_secret(processor, data):
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test_job")
 
     assert job_pod_spec.pod_spec.image_pull_secrets is None
+
+
+def test_absence_of_env(processor, data):
+    processor.env = {}
+    job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+
+    assert job_pod_spec.pod_spec.containers[0].env == None
