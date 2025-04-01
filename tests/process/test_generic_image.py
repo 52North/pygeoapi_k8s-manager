@@ -255,6 +255,15 @@ def test_absence_of_image_pull_secret(processor, data):
     assert job_pod_spec.pod_spec.image_pull_secrets is None
 
 
+def test_absence_of_resources(processor, data):
+    processor.resources = None
+    with pytest.raises(NotImplementedError) as error:
+        job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+
+    assert error.type == NotImplementedError
+    assert error.match("Default resources not implemented. Please specify in process resource!")
+
+
 def test_absence_of_env(processor, data):
     processor.env = {}
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")

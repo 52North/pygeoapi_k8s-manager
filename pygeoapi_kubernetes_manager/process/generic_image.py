@@ -81,8 +81,8 @@ class GenericImageProcessor(KubernetesProcessor):
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = processor_def["image_pull_secret"] if "image_pull_secret" in processor_def.keys() else None
-        self.resources: dict = processor_def["resources"]
         self.env: dict = processor_def["env"] if "env" in processor_def.keys() else {}
+        self.resources: dict = processor_def["resources"] if "resources" in processor_def.keys() else None
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
         self.supports_outputs: bool = True if self.mimetype else False
 
@@ -145,6 +145,9 @@ class GenericImageProcessor(KubernetesProcessor):
         return k8s_env
 
     def _res_from_processor_spec(self) -> V1ResourceRequirements:
+        # TODO Implement creation of default resources
+        if not self.resources:
+            raise NotImplementedError("Default resources not implemented. Please specify in process resource!")
         return V1ResourceRequirements(
             limits=self.resources["limits"],
             requests=self.resources["requests"])
@@ -170,7 +173,7 @@ class GenericImageProcessor(KubernetesProcessor):
             image=self.default_image,
             command=self.command,
             env=k8s_env,
-            resources=k8s_res
+            resources=k8s_res,
         )
 
         return KubernetesProcessor.JobPodSpec(
@@ -181,8 +184,8 @@ class GenericImageProcessor(KubernetesProcessor):
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
-                **extra_podspec,
                 enable_service_links=False,
+                **extra_podspec,
             ),
             extra_annotations={
                 "parameters" : json.dumps(data),
