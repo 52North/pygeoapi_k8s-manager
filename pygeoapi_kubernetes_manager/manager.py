@@ -261,6 +261,7 @@ class KubernetesManager(BaseManager):
         if job is None or (JobStatus[job["status"]]) != JobStatus.successful:
             raise JobResultNotFoundError
         else:
+            # ATM: get pod and pod logs and return them json encoded
             pod: k8s_client.V1Pod = pod_for_job_id(self.namespace, job["identifier"])
             LOGGER.debug(f"metadata.name   : '{pod.metadata.name}'")
             LOGGER.debug(f"container name  : '{pod.spec.containers[0].name}")

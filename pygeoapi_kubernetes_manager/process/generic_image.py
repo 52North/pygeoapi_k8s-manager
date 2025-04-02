@@ -209,6 +209,7 @@ class GenericImageProcessor(KubernetesProcessor):
         job_name: str
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
+        # TODO add input validation using data and self.metadata["inputs"]
 
         extra_podspec = self._add_tolerations()
 
