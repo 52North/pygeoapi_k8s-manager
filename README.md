@@ -4,6 +4,15 @@ Extends [pygeoapi](https://pygeoapi.io/) by a manager for kubernetes jobs and a 
 
 It implements the following features and workflow.
 
+## Usage
+
+### GenericImageProcessor
+
+The required and supported configuration options are outlined in the example configuration `pygeoapi-config.yaml`.
+
+The given inputs are injected into the k8s job pod via the environment variable `PYGEOAPI_K8S_MANAGER_INPUTS`.
+Hence, your process wrapper MUST use this variable for dynamic inputs.
+Static inputs can be injected using your environment variable definitions.
 
 - Required RBAC rules:
 
@@ -128,7 +137,7 @@ pip install --upgrade -r requirements-dev.txt
 - [x] Implement env support
 - [x] Implement resource support
 - [x] Implement storage support
-- [ ] Provide inputs via env variable "to image"
+- [x] Provide inputs via env variable `PYGEOAPI_K8S_MANAGER_INPUTS` "to image"
 - [ ] Implement job result subscriber workflow:
   - [updater thread](https://github.com/eurodatacube/pygeoapi-kubernetes-papermill/blob/main/pygeoapi_kubernetes_papermill/kubernetes.py#L122-L128)
   - [According code](https://github.com/eurodatacube/pygeoapi-kubernetes-papermill/blob/main/pygeoapi_kubernetes_papermill/kubernetes.py#L531-L596)

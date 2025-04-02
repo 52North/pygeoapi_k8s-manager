@@ -185,6 +185,25 @@ class GenericImageProcessor(KubernetesProcessor):
             )
         return k8s_volumes
 
+    def _add_inputs_to_env(self, data: dict, k8s_env: list[V1EnvVar] | None) -> list[V1EnvVar]:
+        if data == None or len(data) == 0:
+            return k8s_env
+        if k8s_env == None:
+            k8s_env = []
+        k8s_env.append(
+            V1EnvVar(
+                name="PYGEOAPI_K8S_MANAGER_INPUTS",
+                value=json.dumps(data)
+            )
+        )
+        return k8s_env
+
+    def _extra_annotations_from(self, job_name: str, data: dict | None) -> dict:
+        annotations = {"job-name": job_name}
+        if data:
+            annotations["parameters"] = json.dumps(data)
+        return annotations
+
     def create_job_pod_spec(self,
         data: dict,
         job_name: str
@@ -199,9 +218,11 @@ class GenericImageProcessor(KubernetesProcessor):
             ]
 
         k8s_env = self._env_from_processor_spec()
+        k8s_env = self._add_inputs_to_env(data, k8s_env)
         k8s_res = self._res_from_processor_spec()
         k8s_volume_mounts = self._volume_mounts_from_processor_spec()
         k8s_volumes = self._volumes_from_processor_spec()
+        k8s_extra_annotations = self._extra_annotations_from(job_name, data)
 
         image_container = k8s_client.V1Container(
             name="generic-image-processor",
@@ -224,10 +245,7 @@ class GenericImageProcessor(KubernetesProcessor):
                 volumes=k8s_volumes,
                 **extra_podspec,
             ),
-            extra_annotations={
-                "parameters" : json.dumps(data),
-                "job-name": job_name,
-            },
+            extra_annotations=k8s_extra_annotations,
         )
 
     def __repr__(self):

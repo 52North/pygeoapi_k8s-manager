@@ -247,7 +247,7 @@ def test_create_job_pod_spec(processor, data):
     assert container.volume_mounts[0].name == "test-storage-name"
 
     env = container.env
-    assert len(env) == 3
+    assert len(env) == 4
     assert env[0].name == "env_from_secret_name"
     assert env[0].value_from.secret_key_ref.name == "env_from_secret_secret_name"
     assert env[0].value_from.secret_key_ref.key == "env_from_secret_secret_key"
@@ -293,6 +293,13 @@ def test_absence_of_resources(processor, data):
 
 def test_absence_of_env(processor, data):
     processor.env = {}
-    job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+    job_pod_spec = processor.create_job_pod_spec(data=None, job_name="test-job")
 
     assert job_pod_spec.pod_spec.containers[0].env == None
+
+
+def test_inputs_are_provided_as_env(processor, data):
+    job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+
+    assert job_pod_spec.pod_spec.containers[0].env[3].name == "PYGEOAPI_K8S_MANAGER_INPUTS"
+    assert job_pod_spec.pod_spec.containers[0].env[3].value == "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
