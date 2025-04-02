@@ -14,6 +14,10 @@ The given inputs are injected into the k8s job pod via the environment variable 
 Hence, your process wrapper MUST use this variable for dynamic inputs.
 Static inputs can be injected using your environment variable definitions.
 
+Each execution of a GenericImageProcessor requires an auth token to be provided as input `token`.
+It MUST match the value of the environment variable `PYGEOAPI_K8S_MANAGER_API_TOKEN`.
+An `ProcessorExecuteError` will be raised if not given and matching.
+
 - Required RBAC rules:
 
   ```shell
