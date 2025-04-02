@@ -18,6 +18,8 @@ Each execution of a GenericImageProcessor requires an auth token to be provided 
 It MUST match the value of the environment variable `PYGEOAPI_K8S_MANAGER_API_TOKEN`.
 An `ProcessorExecuteError` will be raised if not given and matching.
 
+## k8s Configuration Requirements
+
 - Required RBAC rules:
 
   ```shell
