@@ -49,7 +49,7 @@ Create/Update the NOTICE file using the following command **AFTER** building the
 docker run \
   --rm \
   --entrypoint "/bin/bash" \
-  swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager:latest \
+  52north/pygeoapi-k8s-manager/pygeoapi-k8s-manager:latest \
   -c "pip install --no-warn-script-location --no-cache-dir pip-licenses > /dev/null && /usr/local/bin/pip-licenses -f plain | grep -v pygeoapi-k8s-manager"
 ```
 
@@ -58,9 +58,9 @@ docker run \
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.4 \
-REGISTRY=swr.eu-de.otc.t-systems.com \
-IMAGE=n52/pygeoapi-k8s-manager \
+VERSION=0.5 \
+REGISTRY=docker.io \
+IMAGE=52north/pygeoapi-k8s-manager \
 ; \
 docker build \
   -t "${REGISTRY}/${IMAGE}:latest" \
@@ -75,15 +75,17 @@ docker build \
 **Run** the image locally for testing:
 
 ```shell
+REGISTRY=docker.io \
+IMAGE=52north/pygeoapi-k8s-manager \
 docker run \
-  --env PYGEOAPI_K8S_MANAGER_NAMESPACE=dev-directed \
+  --env PYGEOAPI_K8S_MANAGER_NAMESPACE=default \
   --env PYGEOAPI_K8S_MANAGER_API_TOKEN=token \
   --rm \
   --name k8s-manager \
   -p 80:80 \
   --volume=./pygeoapi-config.yaml:/pygeoapi/local.config.yml \
   --volume="$HOME/.kube/:/root/.kube/" \
-  swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager:latest
+  "${REGISTRY}/${IMAGE}:latest"
 ```
 
 **Scan** the image for vulnerabilities
@@ -98,20 +100,20 @@ docker run -ti --rm \
         --format table \
         --severity CRITICAL,HIGH \
         --ignore-unfixed \
-        swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager:latest
+        52north/pygeoapi-k8s-manager:latest
 ```
 
 **Upload to registry** after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):
 
 ```shell
-docker push --all-tags swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager
+docker push --all-tags 52north//pygeoapi-k8s-manager
 ```
 
 or
 
 ```shell
-docker push swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager:latest && \
-docker push "swr.eu-de.otc.t-systems.com/n52/pygeoapi-k8s-manager:$VERSION"
+docker push 52north/pygeoapi-k8s-manager:latest && \
+docker push "52north/pygeoapi-k8s-manager:$VERSION"
 ```
 
 ## Tests
