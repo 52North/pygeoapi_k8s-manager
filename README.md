@@ -65,8 +65,8 @@ IMAGE=n52/pygeoapi-k8s-manager \
 docker build \
   -t "${REGISTRY}/${IMAGE}:latest" \
   -t "${REGISTRY}/${IMAGE}:${VERSION}" \
-  --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  --build-arg GIT_COMMIT=$(git rev-parse -q --verify HEAD) \
+  --build-arg BUILD_DATE=$(date -u --iso-8601=seconds) \
+  --build-arg GIT_COMMIT=$(git rev-parse --short=12 -q --verify HEAD) \
   --build-arg GIT_TAG=$(git describe --tags) \
   --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) \
   .
