@@ -1,0 +1,150 @@
+name: "build push images of pygeoapi-k8s-manager"
+concurrency:
+  group: "pygeoapi-k8s-manager"
+  cancel-in-progress: true
+env:
+  BUILD_CONTEXT: .
+  IMAGE_AUTHORS: https://52North.org/
+  IMAGE_DESCRIPTION: 52°North pygeoapi with k8s-manager
+  IMAGE_LICENSES: MIT
+  IMAGE_TAG: 52north/pygeoapi-k8s-manager
+  IMAGE_TITLE: 52°North pygeoapi with k8s-manager
+  IMAGE_VENDOR: 52°North GmbH
+  METADATA_TAG_PATTERN: v(.*)
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "Please provide a git tag value, e.g. v1.0-manually-triggered.1"
+        required: true
+        type: string
+        default: "v1.0-manually-triggered.1"
+  push:
+    tags: ["v*"]
+
+jobs:
+  push_to_docker_hub:
+    name: "pygeoapi-k8s-manager: build, publish and scan container image"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    -
+      name: Checkout Repository
+      uses: actions/checkout@v4
+    -
+      name: Set up Docker Buildkit env
+      uses: docker/setup-buildx-action@v3
+    -
+      name: Determine Branch or Tag
+      id: determine
+      run: |
+        if [[ "${{ github.ref }}" == refs/heads/* ]]; then
+          echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "TAG=build-by-branch" >> $GITHUB_ENV
+        elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          echo "TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "BRANCH=build-by-tag" >> $GITHUB_ENV
+        fi
+    -
+      name: Extract metadata (tags, labels) for tagging Docker Image
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: "${{ env.IMAGE_TAG }}"
+        labels: |
+          "org.opencontainers.image.authors=${{ env.IMAGE_AUTHORS }}"
+          "org.opencontainers.image.vendor=${{ env.IMAGE_VENDOR }}"
+          "org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}"
+          "org.opencontainers.image.title=${{ env.IMAGE_TITLE }}"
+          "org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}"
+        tags: |
+          type=match,pattern=${{ env.METADATA_TAG_PATTERN }},group=1,value=${{ github.event.inputs.tags }}
+    -
+      name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+    -
+      name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: "${{ env.BUILD_CONTEXT }}"
+        build-args: |
+           GIT_HASH=${{ github.sha }}
+           GIT_TAG=${{ env.TAG }}
+           GIT_BRANCH=${{ env.BRANCH }}
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha
+    -
+      name: Run trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      env:
+        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+        TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
+      with:
+        scan-type: repo
+        scan-ref: '.'
+        format: json
+        output: trivy-results.json
+        exit-code: '0'
+        ignore-unfixed: true
+        vuln-type: os,library
+        scanners: vuln,secret,misconfig
+        severity: CRITICAL,HIGH
+    -
+     name: remove empty results
+     run: |
+       vulnerabilities=$(cat trivy-results.json | jq 'if (.Results | length) == 0 then 0 else [.Results[].Vulnerabilities | length] | add end'); \
+       if [[ "$vulnerabilities" -eq 0 ]]; then \
+        rm trivy-results.json
+       fi
+    -
+     if: ${{ hashFiles('trivy-results.json') != '' }}
+     name: 2nd scan to create human readable report
+     uses: aquasecurity/trivy-action@master
+     env:
+       TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+       TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+       TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
+       TRIVY_FORMAT: table
+       TRIVY_OUTPUT: trivy-results.txt
+     with:
+       image-ref: "${{ env.IMAGE_TAG }}"
+       format: 'table'
+       output: 'trivy-results.txt'
+       exit-code: '0'
+       ignore-unfixed: true
+       vuln-type: 'os,library'
+       severity: 'CRITICAL,HIGH'
+    -
+      if: ${{ hashFiles('trivy-results.txt') != '' }}
+      name: Upload to 52N slack
+      uses: MeilCli/slack-upload-file@v4
+      with:
+        slack_token: ${{ secrets.SLACK_TOKEN }}
+        file_path: trivy-results.txt
+        file_type: text/plain
+        title: trivy scan results of ${{ github.repository }}
+        channel_id: ${{ secrets.SLACK_CHANNEL_ID_52N }}
+        initial_comment: "Trivy Results for '${{ github.repository }}' uploaded. Please review: https://github.com/${{ github.repository }}/actions"
+    #
+    # BEFORE ACTIVATING the deployment trigger, configure the according secrets
+    # -
+    #   name: Trigger redeployment
+    #   uses: actions/github-script@v7
+    #   with:
+    #     github-token: ${{ secrets.GHA_WORKFLOW_TRIGGER }}
+    #     script: |
+    #         const result = await github.rest.actions.createWorkflowDispatch({
+    #           owner: '${{ secrets.TRIGGER_ORGA }}',
+    #           repo: '${{ secrets.TRIGGER_REPO }}',
+    #           workflow_id: '${{ secrets.TRIGGER_WORKFLOW_1 }}',
+    #           ref: '${{ secrets.TRIGGER_REF }}'
+    #         })
+    #         console.log(result)
