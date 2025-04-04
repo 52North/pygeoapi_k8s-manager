@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    #
+    # https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-timeouts
+    #
+    # default read timeout is 60s
+    # https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_read_timeout
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    #
+    #
+    # add an annotation indicating the issuer to use.
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    # limit to 52n vpn atm
+  name: k8s-job-manager
+spec:
+  ingressClassName: "nginx"
+  tls:
+  - hosts:
+    - api.example.com
+    secretName: api-example-com-tls
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: k8s-job-manager
+            port:
+              number: 80

@@ -1,0 +1,153 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-job-manager-config
+data:
+  local.config.yml: |
+    server:
+      bind:
+        host: 0.0.0.0
+        port: 80
+      url: https://api.example.com/
+      mimetype: application/json; charset=UTF-8
+      encoding: utf-8
+      gzip: false
+      languages:
+        - en-US
+      cors: true
+      pretty_print: true
+      limits:
+        default_items: 50
+        max_items: 1000
+        max_distance_x: 25
+        max_distance_y: 25
+        max_distance_units: m
+        on_exceed: throttle
+      map:
+        url: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+      manager:
+        name: pygeoapi_kubernetes_manager.manager.KubernetesManager
+        logging:
+          kubernetes: INFO
+      admin: false # enable admin api
+    logging:
+      level: DEBUG
+      logfile: /dev/stdout
+    metadata:
+      identification:
+        title:
+          en: pygeoapi default instance
+          fr: instance par défaut de pygeoapi
+        description:
+          en: pygeoapi provides an API to geospatial data
+          fr: pygeoapi fournit une API aux données géospatiales
+        keywords:
+          en:
+            - geospatial
+            - data
+            - api
+          fr:
+            - géospatiale
+            - données
+            - api
+        keywords_type: theme
+        terms_of_service: https://creativecommons.org/licenses/by/4.0/
+        url: https://example.org
+      license:
+        name: CC-BY 4.0 license
+        url: https://creativecommons.org/licenses/by/4.0/
+      provider:
+        name: Organization Name
+        url: https://pygeoapi.io
+      contact:
+        name: Lastname, Firstname
+        position: Position Title
+        address: Mailing Address
+        city: City
+        stateorprovince: Administrative Area
+        postalcode: Zip or Postal Code
+        country: Country
+        phone: +xx-xxx-xxx-xxxx
+        fax: +xx-xxx-xxx-xxxx
+        email: you@example.org
+        url: Contact URL
+        hours: Mo-Fr 08:00-17:00
+        instructions: During hours of service. Off on weekends.
+        role: pointOfContact
+    resources:
+      hello-world-k8s:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor
+          default_image: "busybox:latest"
+          command: 'echo "hello world from k8s"'
+          image_pull_secret: default-secret
+      generic-image-processor-example:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_manager.process.GenericImageProcessor
+          metadata:
+            version: 0.1
+            id: generic-image-processor-example
+            title:
+              en: "Generic Image Processor Example"
+            description:
+              en: "Example Configuration of Generic Image Processor"
+            keywords:
+              - generic image processor example
+              - example
+              - generic image processor
+              - k8s
+              - k8s manager
+              - KubernetesManager
+            links:
+              - type: text/html
+                rel: about
+                title: Processor Code Repository
+                href: https://github.com/52North/pygeoapi_k8s-manager/tree/main/pygeoapi_kubernetes_manager/process/generic_image.py
+                hreflang: en-UK
+            inputs:
+              token:
+                title: secret token
+                description: identify yourself
+                schema:
+                  type: string
+            outputs:
+              logs:
+                title: logs
+                description: The logs of the job
+                schema:
+                  type: string
+                  contentMediaType: application/json
+            example:
+              inputs:
+                token: token
+          default_image: bash:latest
+          # OPTIONAL
+          # image_pull_secret: default-secret
+          command:
+            - bash
+            - -c
+            - "date; env | sort"
+          env:
+            # env from secrets (requires existing secrets in k8s cluster!)
+            # - name: EXAMPLE_ENV_FROM_SECRET
+            #   secret_name: example-secret-name
+            #   secret_key: example-secret-key
+            # simple env
+            - name: SIMPLE_ENV_BOOLEAN_AS_STRING
+              value: "False"
+            - name: SIMPLE_ENV_BOOLEAN_AS_BOOLEAN
+              value: False
+            - name: SIMPLE_ENV_STRING
+              value: "simple-env-string"
+            - name: SIMPLE_ENV_INTEGER
+              value: 1024
+          resources:
+            requests:
+              memory: 16M
+              cpu: 10m
+            limits:
+              memory: 256M
+              cpu: 100m

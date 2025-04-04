@@ -32,6 +32,13 @@ An `ProcessorExecuteError` will be raised if not given and matching.
   pods         []                 []              [get watch list]
   ```
 
+See [k8s manifest examples](./k8s-manifests/) for an example set-up, that needs adjustment to your cluster.
+The set-up requires a secret `k8s-job-manager` with key `token` in the same namespace of the deployment (*here*: `default`), that could be created with the following command:
+
+```shell
+kubectl create secret generic -n default k8s-job-manager --from-literal=token=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32; echo)
+```
+
 ## Development
 
 Create python venv to develop via `python -m venv --prompt pygeoapi-k8s-manager .venv`
@@ -146,6 +153,8 @@ pip install --upgrade -r requirements-dev.txt
 - [x] Implement resource support
 - [x] Implement storage support
 - [x] Provide inputs via env variable `PYGEOAPI_K8S_MANAGER_INPUTS` "to image"
+- [x] Add/document role with required permissions with service account, rolebinding
+- [x] Add minimal set of k8s manifests required
 - [ ] Implement job result subscriber workflow:
   - [updater thread](https://github.com/eurodatacube/pygeoapi-kubernetes-papermill/blob/main/pygeoapi_kubernetes_papermill/kubernetes.py#L122-L128)
   - [According code](https://github.com/eurodatacube/pygeoapi-kubernetes-papermill/blob/main/pygeoapi_kubernetes_papermill/kubernetes.py#L531-L596)
