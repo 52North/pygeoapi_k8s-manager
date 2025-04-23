@@ -65,7 +65,7 @@ docker run \
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.5 \
+VERSION=0.6 \
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
@@ -73,7 +73,7 @@ docker build \
   -t "${REGISTRY}/${IMAGE}:latest" \
   -t "${REGISTRY}/${IMAGE}:${VERSION}" \
   --build-arg BUILD_DATE=$(date -u --iso-8601=seconds) \
-  --build-arg GIT_COMMIT=$(git rev-parse --short=12 -q --verify HEAD) \
+  --build-arg GIT_COMMIT=$(git rev-parse --short=20 -q --verify HEAD) \
   --build-arg GIT_TAG=$(git describe --tags) \
   --build-arg GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) \
   .

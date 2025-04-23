@@ -48,13 +48,14 @@ ARG INFO_FILE=pygeoapi/static/info.txt
 ARG GIT_BRANCH=branch-undefined
 ARG GIT_TAG=tag-undefined
 RUN touch "${INFO_FILE}" \
- && echo "BUILD INFO" > "$INFO_FILE" \
+ && echo "Build" > "$INFO_FILE" \
+ && echo "-----" >> "$INFO_FILE" \
  && echo "timestamp: $(date -u --iso-8601=seconds)" >> "$INFO_FILE" \
- && echo "git hash: $GIT_COMMIT" >> "$INFO_FILE" \
+ && echo "git hash: $(echo $GIT_COMMIT | cut -c1-20)" >> "$INFO_FILE" \
  && echo "git branch: $GIT_BRANCH" >> "$INFO_FILE" \
  && echo "git tag: $GIT_TAG" >> "$INFO_FILE" \
  && echo "pygeoapi: $(pygeoapi --version)" >> "$INFO_FILE" \
- && cat ${INFO_FILE}
+ && cat "${INFO_FILE}"
 
 RUN sed -i '/{{ version }}/a \
  \(<a title="info" id="showInfo" href="{{ config["server"]["url"] }}/static/info.txt">info</a>\)\
@@ -71,3 +72,16 @@ RUN sed -i '/{{ version }}/a \
      });\
  });\
  </script>' /pygeoapi/pygeoapi/templates/_base.html
+
+RUN sed -i '/^start_gunicorn() {/a \
+        \
+        \# Update info file to log start of deployment\n\
+        INFO_FILE=pygeoapi/static/info.txt\n\
+        touch "$INFO_FILE"\n\
+        echo "----------" >> "$INFO_FILE"\n\
+        echo "Deployment" >> "$INFO_FILE"\n\
+        echo "----------" >> "$INFO_FILE"\n\
+        echo "start: $(date -u --iso-8601=seconds)" >> "$INFO_FILE"\n\
+        echo "API_ROOT: $API_ROOT" >> "$INFO_FILE"\n\
+        echo "SCRIPT_NAME: $SCRIPT_NAME" >> "$INFO_FILE"\n\
+        echo "TZ: $TZ" >> "$INFO_FILE"' /entrypoint.sh
