@@ -242,7 +242,7 @@ class KubernetesManager(BaseManager):
             return job_from_k8s(k8s_job, job_message(self.namespace, k8s_job))
         except kubernetes.client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
-                raise JobNotFoundError
+                raise JobNotFoundError(f"Job with id '{job_id}' not found.")
             else:
                 raise
 
@@ -258,8 +258,11 @@ class KubernetesManager(BaseManager):
         """
         job = self.get_job(job_id=job_id)
 
-        if job is None or (JobStatus[job["status"]]) != JobStatus.successful:
-            raise JobResultNotFoundError
+        if job is None:
+            # should not happen and be handled already in self.get_job()
+            raise JobNotFoundError(f"No job with id '{job_id}' found!")
+        elif (JobStatus[job["status"]]) != JobStatus.successful:
+            raise JobResultNotFoundError(f"No results for job '{job_id}' with state '{JobStatus[job["status"]].value}' found.")
         else:
             # ATM: get pod and pod logs and return them json encoded
             pod: k8s_client.V1Pod = pod_for_job_id(self.namespace, job["identifier"])

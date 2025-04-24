@@ -26,10 +26,17 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
-from unittest.mock import patch
+from unittest.mock import (
+    MagicMock,
+    patch
+)
+
 import pytest
 
-from pygeoapi.process.base import JobResultNotFoundError
+from pygeoapi.process.base import (
+    JobNotFoundError,
+    JobResultNotFoundError
+)
 
 from pygeoapi_kubernetes_manager.manager import (
     KubernetesManager,
@@ -275,6 +282,30 @@ def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id)
     assert job_1["mimetype"] == "application/json"
 
 
+def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process_id):
+    with pytest.raises(JobNotFoundError) as error:
+        with(
+            patch.object(KubernetesManager, "get_job", return_value=None)
+        ):
+            manager.get_job_result(process_id)
+    assert error.type is JobNotFoundError
+    assert error.match(f"No job with id '{process_id}' found!")
+
+
+def test_manager_get_job_result_raises_error_on_failed_job(manager, process_id):
+    state = "failed"
+    with pytest.raises(JobResultNotFoundError) as error:
+        with(
+            patch.object(KubernetesManager, "get_job", return_value={
+                "identifier": process_id,
+                "status": state
+            })
+        ):
+            manager.get_job_result(process_id)
+    assert error.type is JobResultNotFoundError
+    assert error.match(f"No results for job '{process_id}' with state '{state}' found.")
+
+
 def test_manager_get_job_result_raises_error_on_absent_pod(manager, process_id):
     with pytest.raises(JobResultNotFoundError) as error:
         with(
@@ -311,6 +342,21 @@ def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id,
             manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
     assert error.match(f"Could not retrieve logs for job '{process_id}'")
+
+
+def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
+    logs_expected = "test log string"
+    with(
+        patch.object(KubernetesManager, "get_job", return_value={
+            "identifier": process_id,
+            "status": "successful"
+        }),
+        patch("pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=mocked_pod),
+        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_expected)
+    ):
+        mimetype, logs_received = manager.get_job_result(process_id)
+    assert mimetype is None
+    assert logs_received == logs_expected
 
 
 def test_get_completion_time_failed_job(k8s_job_3_failed):
