@@ -262,7 +262,7 @@ class KubernetesManager(BaseManager):
             # should not happen and be handled already in self.get_job()
             raise JobNotFoundError(f"No job with id '{job_id}' found!")
         elif (JobStatus[job["status"]]) != JobStatus.successful:
-            raise JobResultNotFoundError(f"No results for job '{job_id}' with state '{JobStatus[job["status"]].value}' found.")
+            raise JobResultNotFoundError(f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found.")
         else:
             # ATM: get pod and pod logs and return them json encoded
             pod: k8s_client.V1Pod = pod_for_job_id(self.namespace, job["identifier"])
