@@ -40,8 +40,6 @@ from typing import (
     cast,
 )
 
-import kubernetes
-
 from pygeoapi.process.manager.base import (
     BaseManager,
     Subscriber,
@@ -240,7 +238,7 @@ class KubernetesManager(BaseManager):
                 namespace=self.namespace,
             )
             return job_from_k8s(k8s_job, job_message(self.namespace, k8s_job))
-        except kubernetes.client.rest.ApiException as e:
+        except k8s_client.rest.ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
                 raise JobNotFoundError(f"Job with id '{job_id}' not found.")
             else:
