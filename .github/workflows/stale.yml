@@ -1,8 +1,8 @@
 name: 'Close stale issues and PRs'
 on:
   schedule:
-    - cron: '52 4 * * *'
-
+    # https://crontab.cronhub.io/
+    - cron: '52 4 * * Mon'
 jobs:
   stale:
     runs-on: ubuntu-latest
