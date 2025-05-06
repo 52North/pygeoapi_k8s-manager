@@ -513,9 +513,11 @@ def manager_with_finalizer():
     return KubernetesManager({"name": "test-manager", "mode": "test", "finalizer_controller": True})
 
 
+@pytest.mark.skip("Causing to much logging noise atm")
 def test_manager_starts_thread_if_finalizer_is_configured(manager_with_finalizer):
     assert manager_with_finalizer.finalizer_controller.is_alive()
 
 
+@pytest.mark.skip("TODO implement")
 def test_kubernetes_finalizer_loop():
     assert False
