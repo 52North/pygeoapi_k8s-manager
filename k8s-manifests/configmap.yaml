@@ -30,6 +30,8 @@ data:
         name: pygeoapi_kubernetes_manager.manager.KubernetesManager
         logging:
           kubernetes: INFO
+        # enable k8s finalizer controller
+        finalizer_controller: true
       admin: false # enable admin api
     logging:
       level: DEBUG

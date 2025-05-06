@@ -28,6 +28,26 @@ spec:
             secretKeyRef:
               name: k8s-job-manager
               key: token
+          #
+          # configure log finalizer
+          #
+        - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT
+          value: https://obs.eu-de.otc.t-systems.com
+        - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: k8s-job-manager-log-finalizer-credentials
+              key: key
+        - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: k8s-job-manager-log-finalizer-credentials
+              key: secret
+        - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX
+          value: k8s-manager/logs/
+          #
+          # end of log finalizer
+          #
           # pyGeoAPI
           # the config, that defines the ingest API set-up
         - name: PYGEOAPI_CONFIG

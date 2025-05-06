@@ -46,6 +46,21 @@ from filelock import (
     Timeout,
 )
 
+import boto3
+import boto3.session
+from botocore.exceptions import ClientError
+
+from kubernetes import (
+    client as k8s_client,
+    config as k8s_config,
+    watch,
+)
+
+from kubernetes.client import (
+    CoreV1Api,
+    V1Pod,
+)
+
 from pygeoapi.process.manager.base import (
     BaseManager,
     Subscriber,
@@ -62,17 +77,6 @@ from pygeoapi.process.base import (
 from pygeoapi.util import (
     DATETIME_FORMAT,
     JobStatus,
-)
-
-from kubernetes import (
-    client as k8s_client,
-    config as k8s_config,
-    watch,
-)
-
-from kubernetes.client import (
-    CoreV1Api,
-    V1Pod,
 )
 
 from .util import (
@@ -145,22 +149,86 @@ def kubernetes_finalizer_handle_deletion_event(
         finalizer_id:str,
         namespace: str,
         pod: V1Pod,
+        skip_s3_upload: bool,
     ) -> None:
     name = pod.metadata.name
     LOGGER.debug(f"Handling deletion for pod: {name}")
 
-    if finalizer_id in pod.metadata.finalizers:
-        pod.metadata.finalizers.remove(finalizer_id)
-        body = {
-            "metadata": {
-                "finalizers": None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers
-            }
+    if finalizer_id not in pod.metadata.finalizers: return
+
+    # 1 get logs from pod container #1
+    logs, http_status, http_headers = k8s_client.CoreV1Api().read_namespaced_pod_log_with_http_info(
+        name=pod.metadata.name,
+        namespace=pod.metadata.namespace,
+        container=pod.spec.containers[0].name
+    )
+    if logs is None:
+        LOGGER.error(f"Could not retrieve logs for pod '{pod.name}'")
+    elif not skip_s3_upload:
+        LOGGER.debug("Retrieve logs from pod")
+        #
+        # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION
+        #
+        #
+        os.environ["AWS_REQUEST_CHECKSUM_CALCULATION"] = "when_required"
+        os.environ["AWS_RESPONSE_CHECKSUM_VALIDATION"] = "when_required"
+        # 2 Connect to s3 bucket
+        s3 = boto3.session.Session().client(
+            "s3",
+            endpoint_url=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT"),
+            aws_access_key_id=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY"),
+            aws_secret_access_key=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"),
+        )
+        path = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX")
+        job_name = None if not pod.metadata.labels else pod.metadata.labels['job-name']
+        if job_name is None:
+            LOGGER.error(f"Job name label not found in pod metadata: '{pod.metadata}'. Using millis of start time.")
+            job_name = int(pod.status.start_time.timestamp() * 1000)
+
+        log_file_with_path = f"{path}{job_name}-logs.txt"
+        bucket_name = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME")
+        LOGGER.debug(f"Upload target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
+        try:
+            s3.head_object(Bucket=bucket_name, Key=log_file_with_path)
+            log_file_with_path = f"{log_file_with_path}.duplicate.txt"
+            LOGGER.debug(f"Upload target exists. New target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
+        except ClientError as e:
+            if e.response['Error']['Code'] != '404':
+                LOGGER.error(f"Checking for object 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}' in bucket failed: {e}")
+        # 3 upload file
+        LOGGER.debug("Start writing file")
+        s3.put_object(Bucket=bucket_name, Key=log_file_with_path, Body=str(logs).encode("utf-8"))
+        LOGGER.info(f"Log data saved to '{log_file_with_path}'")
+    # 4 Remove finalizer entry to allow pod termination
+    pod.metadata.finalizers.remove(finalizer_id)
+    body = {
+        "metadata": {
+            "finalizers": None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers
         }
-        deleted_pod, status, headers = k8s_core_api.patch_namespaced_pod_with_http_info(
-            name=name,
-            namespace=namespace,
-            body=body)
-        LOGGER.debug(f"Removed finalizer from pod '{name}' with HTTP status '{status}'")
+    }
+    deleted_pod, status, headers = k8s_core_api.patch_namespaced_pod_with_http_info(
+        name=name,
+        namespace=namespace,
+        body=body)
+    LOGGER.debug(f"Removed finalizer from pod '{name}' with HTTP status '{status}'")
+
+
+def check_s3_log_upload_variables() -> bool:
+    skip_s3_upload = False
+    for key in (
+        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT',
+        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY',
+        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET',
+        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME',
+        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX'
+        ):
+        value = os.getenv(key=key, default=None)
+        if value is None or len(value) == 0:
+            LOGGER.error(f"Required environment variable '{key}' not configured correctly: '{value}'")
+            skip_s3_upload = True
+    if skip_s3_upload:
+        LOGGER.info("Will skip s3 upload to log files because of bad configuration")
+    return skip_s3_upload
 
 
 def kubernetes_finalizer_loop(lockfile:str, namespace:str) -> None:
@@ -169,26 +237,55 @@ def kubernetes_finalizer_loop(lockfile:str, namespace:str) -> None:
     try:
         with lock.acquire(timeout=0):
             LOGGER.debug("Got the lock.")
+            # check env config
+            skip_s3_upload = check_s3_log_upload_variables()
+
             finalizer_id = format_log_finalizer()
             k8s_core_api = k8s_client.CoreV1Api()
-            watcher = watch.Watch()
-            LOGGER.info(f"Start watching events for pods in namespace '{namespace}'.")
-            for event in watcher.stream(k8s_core_api.list_namespaced_pod, namespace=namespace):
-                pod = event['object']
-                event_type = event['type']
-                LOGGER.debug(f"Event '{event_type}' with object pod '{pod.metadata.name}' received")
 
-                if event_type not in ('ADDED', 'DELETED') and \
-                    pod.metadata.deletion_timestamp and \
-                        finalizer_id in (pod.metadata.finalizers or []):
-                    LOGGER.debug(f"Found pod '{pod.metadata.name}' to be deleted '{pod.metadata.deletion_timestamp}' with matching finalizer '{finalizer_id}'.")
-                    kubernetes_finalizer_handle_deletion_event(
-                        k8s_core_api,
-                        finalizer_id,
-                        namespace,
-                        pod,
-                    )
-            LOGGER.info(f"Finished watching events for pods in namespace '{namespace}'.")
+            resource_version = None
+
+            LOGGER.info(f"Start watching events for pods in namespace '{namespace}'.")
+            while True:
+                # get fresh list at start and in case of resyncing
+                if resource_version is None:
+                    LOGGER.debug("Requesting initial/new resource_version")
+                    pods = k8s_core_api.list_namespaced_pod(namespace)
+                    resource_version = pods.metadata.resource_version
+                    LOGGER.debug(f"resource_version received: '{resource_version}'.")
+
+                while True:
+                    try:
+                        LOGGER.debug("Start inner watch")
+                        watcher = watch.Watch()
+                        for event in watcher.stream(
+                            k8s_core_api.list_namespaced_pod,
+                            namespace=namespace,
+                            resource_version=resource_version,
+                            ):
+                            pod = event["object"]
+                            event_type = event["type"]
+                            LOGGER.debug(f"Event '{event_type}' with object pod '{pod.metadata.name}' received")
+
+                            if event_type not in ("ADDED", "DELETED") and \
+                                pod.metadata.deletion_timestamp and \
+                                    finalizer_id in (pod.metadata.finalizers or []):
+                                LOGGER.debug(f"Found pod '{pod.metadata.name}' to be deleted '{pod.metadata.deletion_timestamp}' with matching finalizer '{finalizer_id}'.")
+                                kubernetes_finalizer_handle_deletion_event(
+                                    k8s_core_api,
+                                    finalizer_id,
+                                    namespace,
+                                    pod,
+                                    skip_s3_upload,
+                                )
+                            if event_type == "BOOKMARK":
+                                LOGGER.debug(f"Processing 'Bookmark'. Updating resource version: '{resource_version}' -> {pod.metadata.resource_version}'.")
+                                resource_version = pod.metadata.resource_version
+                        LOGGER.debug(f"Finished inner watch")
+                    except k8s_client.ApiException as e:
+                        LOGGER.debug("Api Exception received. Resetting resource_version and trigger resyncing.")
+                        resource_version = None
+                        break
     except Timeout:
         LOGGER.error("Did not get the lock, hopefully someone else will take care of the finalizer task :-(.")
     LOGGER.info("Finished finalizer thread")
@@ -244,7 +341,6 @@ class KubernetesManager(BaseManager):
                 # it will be killed, if it's the last thread in the application
                 daemon=True)
             self.finalizer_controller.start()
-            LOGGER.info("Started finalizer thread")
 
     def add_job(self, job_metadata):
         # For k8s, add_job is implied by executing the job

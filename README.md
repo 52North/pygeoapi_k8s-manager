@@ -39,6 +39,34 @@ The set-up requires a secret `k8s-job-manager` with key `token` in the same name
 kubectl create secret generic -n default k8s-job-manager --from-literal=token=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32; echo)
 ```
 
+## Job Logs Finalizer
+
+The manager comes with an built-in [k8s finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/) controller to handle the logs of the jobs and persist them in an s3 bucket.
+The according configuration requires the following environment variables and activation in the pygeoapi configuration.
+
+**pygeoapi configuration snippet**:
+
+```yaml
+server:
+  manager:
+    name: pygeoapi_kubernetes_manager.manager.KubernetesManager
+    finalizer_controller: true
+```
+
+**environment variables to configure**:
+
+| **name** | **comment** |
+|---|---|
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT` | Endpoint to the bucket hosting service, similar to `FSSPEC_S3_ENDPOINT_URL`, e.g. OTC: `https://obs.eu-de.otc.t-systems.com` |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY` | The access key with permission to upload files to the given "path", similar to `FSSPEC_S3_KEY` |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET` | The access key secret for the key, similar to `FSSPEC_S3_SECRET`. |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME` | Name of the bucket. |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX` | The "folder" the log files will be uploaded to. It MUST end with an `/`. |
+
+Ensure, that the bucket is not publicly available in the internet, because the logs might leak confidential information and should be consulted only by technical personnel.
+
+**Hint**: The controller will cancel the log file upload, if any of these variables is not configured and log errors. This will result in k8s resources not being deleted!
+
 ## Development
 
 Create python venv to develop via `python -m venv --prompt pygeoapi-k8s-manager .venv`
@@ -81,12 +109,20 @@ docker build \
 
 **Run** the image locally for testing:
 
+**Hint**: Notice the whitespace before the command to prevent the secrets to be stored in the history of the shell.
+If the used shell does NOT support this, ensure another procedure to prevent leaking of the credentials
+
 ```shell
-REGISTRY=docker.io \
+ REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 docker run \
   --env PYGEOAPI_K8S_MANAGER_NAMESPACE=default \
   --env PYGEOAPI_K8S_MANAGER_API_TOKEN=token \
+  --env PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT=https://obs.eu-de.otc.t-systems.com \
+  --env PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY=my-key \
+  --env PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET=my-secret \
+  --env PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME=my-bucket \
+  --env PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX=my-k8s-job-manager/logs/ \
   --rm \
   --name k8s-manager \
   -p 80:80 \
