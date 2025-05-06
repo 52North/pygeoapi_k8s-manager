@@ -36,6 +36,7 @@ data:
     logging:
       level: DEBUG
       logfile: /dev/stdout
+      logformat: '[%(asctime)s | %(name)s::%(module)s.py:%(lineno)d | %(process)d] %(levelname)s - %(message)s'
     metadata:
       identification:
         title:

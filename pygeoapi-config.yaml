@@ -33,6 +33,22 @@ server:
 logging:
   level: DEBUG
   #logfile: /tmp/pygeoapi.log
+  #
+  # default: '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
+  #
+  # https://github.com/geopython/pygeoapi/blob/master/pygeoapi/log.py#L49-L51
+  #
+  # https://docs.python.org/3/library/logging.html#logrecord-attributes
+  #
+  logformat: '[%(asctime)s | %(name)s::%(module)s.py:%(lineno)d | %(process)d] %(levelname)s - %(message)s'
+  #
+  # default: '%Y-%m-%dT%H:%M:%SZ'
+  #
+  # https://github.com/geopython/pygeoapi/blob/master/pygeoapi/log.py#L52
+  #
+  # https://docs.python.org/3/library/time.html#time.strftime
+  #
+  dateformat: '%Y-%m-%dT%H:%M:%SZ'
 
 metadata:
   identification:
