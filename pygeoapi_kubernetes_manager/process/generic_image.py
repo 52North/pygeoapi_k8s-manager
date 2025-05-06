@@ -30,11 +30,8 @@ import json
 import logging
 
 import copy
-from typing import Any
 
 from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
-
-from pygeoapi_kubernetes_manager.util import ProcessorClientError
 
 from kubernetes import client as k8s_client
 from kubernetes.client.models import (
@@ -52,28 +49,27 @@ LOGGER = logging.getLogger(__name__)
 
 #: Process metadata and description
 PROCESS_METADATA = {
-    'version': 'should-be-overridden-by-config',
-    'id': 'should-be-overridden-by-config',
-    'title': {
-        'en': 'should-be-overridden-by-config',
+    "version": "should-be-overridden-by-config",
+    "id": "should-be-overridden-by-config",
+    "title": {
+        "en": "should-be-overridden-by-config",
     },
-    'description': {
-        'en': 'should-be-overridden-by-config.',
+    "description": {
+        "en": "should-be-overridden-by-config.",
     },
-    'jobControlOptions': ['async-execute'],
-    'keywords': ['should-be-overridden-by-config', 'k8s', 'KubernetesManager'],
-    'links': [],
-    'inputs': {
+    "jobControlOptions": ["async-execute"],
+    "keywords": ["should-be-overridden-by-config", "k8s", "KubernetesManager"],
+    "links": [],
+    "inputs": {
         # TODO should be filed programmatically
     },
-    'outputs': {},
-    'example': {}
+    "outputs": {},
+    "example": {},
 }
 
 
 class GenericImageProcessor(KubernetesProcessor):
     """Generic Image Processor"""
-
 
     def __init__(self, processor_def: dict):
         metadata = copy.deepcopy(PROCESS_METADATA)
@@ -83,12 +79,20 @@ class GenericImageProcessor(KubernetesProcessor):
 
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
-        self.image_pull_secret: str = processor_def["image_pull_secret"] if "image_pull_secret" in processor_def.keys() else None
+        self.image_pull_secret: str = (
+            processor_def["image_pull_secret"]
+            if "image_pull_secret" in processor_def.keys()
+            else None
+        )
         self.env: dict = processor_def["env"] if "env" in processor_def.keys() else {}
-        self.resources: dict = processor_def["resources"] if "resources" in processor_def.keys() else None
+        self.resources: dict = (
+            processor_def["resources"] if "resources" in processor_def.keys() else None
+        )
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
         self.supports_outputs: bool = True if self.mimetype else False
-        self.storage: dict = processor_def["storage"] if "storage" in processor_def.keys() else None
+        self.storage: dict = (
+            processor_def["storage"] if "storage" in processor_def.keys() else None
+        )
 
     def _output_mimetype(self, metadata: dict) -> str:
         """
@@ -101,31 +105,35 @@ class GenericImageProcessor(KubernetesProcessor):
         if "outputs" not in metadata.keys() or len(metadata["outputs"]) == 0:
             return None
         elif len(metadata["outputs"]) == 1:
-            return next(iter(metadata["outputs"].values()))["schema"]["contentMediaType"]
+            return next(iter(metadata["outputs"].values()))["schema"][
+                "contentMediaType"
+            ]
         else:
             return "application/json"
 
     def _env_from_processor_spec(self) -> list[V1EnvVar]:
         """
-        name: env-name
-        secret_name: secret-name
-        secret_key: secret-key
-        || || ||
-        \/ \/ \/
-        name: env-name
-          valueFrom:
-            secretKeyRef:
-              name: secret-name
-              key: secret-key
+          name: env-name
+          secret_name: secret-name
+          secret_key: secret-key
+
+        results in
+
+          name: env-name
+            valueFrom:
+              secretKeyRef:
+                name: secret-name
+                key: secret-key
 
         or
 
-        name: env-name
-        value: env-value
-        || || ||
-        \/ \/ \/
-        name: env-name
-        value: env-value
+          name: env-name
+          value: env-value
+
+        results in
+
+          name: env-name
+          value: env-value
 
         :returns list[V1EnvVar]
         """
@@ -134,27 +142,35 @@ class GenericImageProcessor(KubernetesProcessor):
         k8s_env = []
         for env_variable in self.env:
             if "secret_name" in env_variable.keys():
-                k8s_env.append(V1EnvVar(
-                    name=env_variable["name"],
-                    value_from=V1EnvVarSource(
-                        secret_key_ref=V1SecretKeySelector(
-                            key=env_variable["secret_key"],
-                            name=env_variable["secret_name"],
-                        ))))
+                k8s_env.append(
+                    V1EnvVar(
+                        name=env_variable["name"],
+                        value_from=V1EnvVarSource(
+                            secret_key_ref=V1SecretKeySelector(
+                                key=env_variable["secret_key"],
+                                name=env_variable["secret_name"],
+                            )
+                        ),
+                    )
+                )
             else:
-                k8s_env.append(V1EnvVar(
-                    name=env_variable["name"],
-                    value=str(env_variable["value"]),
-                ))
+                k8s_env.append(
+                    V1EnvVar(
+                        name=env_variable["name"],
+                        value=str(env_variable["value"]),
+                    )
+                )
         return k8s_env
 
     def _res_from_processor_spec(self) -> V1ResourceRequirements:
         # TODO Implement creation of default resources
         if not self.resources:
-            raise NotImplementedError("Default resources not implemented. Please specify in process resource!")
+            raise NotImplementedError(
+                "Default resources not implemented. Please specify in process resource!"
+            )
         return V1ResourceRequirements(
-            limits=self.resources["limits"],
-            requests=self.resources["requests"])
+            limits=self.resources["limits"], requests=self.resources["requests"]
+        )
 
     def _volume_mounts_from_processor_spec(self) -> list[V1VolumeMount]:
         if not self.storage:
@@ -177,24 +193,22 @@ class GenericImageProcessor(KubernetesProcessor):
             k8s_volumes.append(
                 V1Volume(
                     name=volume["name"],
-                    persistent_volume_claim=
-                    V1PersistentVolumeClaimVolumeSource(
+                    persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
                         claim_name=volume["persistent_volume_claim_name"]
-                    )
+                    ),
                 )
             )
         return k8s_volumes
 
-    def _add_inputs_to_env(self, data: dict, k8s_env: list[V1EnvVar] | None) -> list[V1EnvVar]:
-        if data == None or len(data) == 0:
+    def _add_inputs_to_env(
+        self, data: dict, k8s_env: list[V1EnvVar] | None
+    ) -> list[V1EnvVar]:
+        if data is None or len(data) == 0:
             return k8s_env
-        if k8s_env == None:
+        if k8s_env is None:
             k8s_env = []
         k8s_env.append(
-            V1EnvVar(
-                name="PYGEOAPI_K8S_MANAGER_INPUTS",
-                value=json.dumps(data)
-            )
+            V1EnvVar(name="PYGEOAPI_K8S_MANAGER_INPUTS", value=json.dumps(data))
         )
         return k8s_env
 
@@ -204,9 +218,8 @@ class GenericImageProcessor(KubernetesProcessor):
             annotations["parameters"] = json.dumps(data)
         return annotations
 
-    def create_job_pod_spec(self,
-        data: dict,
-        job_name: str
+    def create_job_pod_spec(
+        self, data: dict, job_name: str
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
         # TODO add input validation using data and self.metadata["inputs"]
@@ -231,14 +244,14 @@ class GenericImageProcessor(KubernetesProcessor):
             command=self.command,
             env=k8s_env,
             resources=k8s_res,
-            volume_mounts=k8s_volume_mounts
+            volume_mounts=k8s_volume_mounts,
         )
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
                 restart_policy="Never",
                 # NOTE: first container is used for status check
-                containers=[image_container], # + extra_config.containers,
+                containers=[image_container],  # + extra_config.containers,
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
@@ -250,4 +263,4 @@ class GenericImageProcessor(KubernetesProcessor):
         )
 
     def __repr__(self):
-        return f'<GenericImageProcessor> {self.name}'
+        return f"<GenericImageProcessor> {self.name}"

@@ -101,23 +101,29 @@ K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
 
 class KubernetesProcessor(BaseProcessor):
 
-
     @dataclass(frozen=True)
     class JobPodSpec:
         pod_spec: k8s_client.V1PodSpec
         extra_annotations: dict[str, str]
-
+        # extra_labels: dict[str, str]
 
     def __init__(self, processor_def, process_metadata):
         super().__init__(processor_def, process_metadata)
-        self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
-        self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
+        self.mimetype = (
+            processor_def["mimetype"]
+            if "mimetype" in processor_def
+            else "application/json"
+        )
+        self.tolerations: list = (
+            processor_def["tolerations"] if "tolerations" in processor_def else None
+        )
 
     def _add_tolerations(self):
         if self.tolerations:
             tolerations: dict[str, Any] = {
                 "tolerations": [
-                    k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
+                    k8s_client.V1Toleration(**toleration)
+                    for toleration in self.tolerations
                 ]
             }
         else:
@@ -145,29 +151,30 @@ class KubernetesProcessor(BaseProcessor):
 
 
 def kubernetes_finalizer_handle_deletion_event(
-        k8s_core_api: CoreV1Api,
-        finalizer_id:str,
-        namespace: str,
-        pod: V1Pod,
-        upload_log_to_s3: bool,
-    ) -> None:
+    k8s_core_api: CoreV1Api,
+    finalizer_id: str,
+    namespace: str,
+    pod: V1Pod,
+    upload_log_to_s3: bool,
+) -> None:
     name = pod.metadata.name
     LOGGER.debug(f"Handling deletion for pod: {name}")
 
-    if finalizer_id not in pod.metadata.finalizers: return
+    if finalizer_id not in pod.metadata.finalizers:
+        return
 
     # 1 get logs from pod container #1
-    logs, http_status, http_headers = k8s_client.CoreV1Api().read_namespaced_pod_log_with_http_info(
+    logs = k8s_client.CoreV1Api().read_namespaced_pod_log_with_http_info(
         name=pod.metadata.name,
         namespace=pod.metadata.namespace,
-        container=pod.spec.containers[0].name
+        container=pod.spec.containers[0].name,
     )
     if logs is None:
         LOGGER.error(f"Could not retrieve logs for pod '{pod.name}'")
     elif upload_log_to_s3:
         LOGGER.debug("Retrieve logs from pod")
         #
-        # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION
+        # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION # noqa: E501
         #
         #
         os.environ["AWS_REQUEST_CHECKSUM_CALCULATION"] = "when_required"
@@ -177,61 +184,77 @@ def kubernetes_finalizer_handle_deletion_event(
             "s3",
             endpoint_url=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT"),
             aws_access_key_id=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY"),
-            aws_secret_access_key=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"),
+            aws_secret_access_key=os.getenv(
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"
+            ),
         )
         path = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX")
-        job_name = None if not pod.metadata.labels else pod.metadata.labels['job-name']
+        job_name = None if not pod.metadata.labels else pod.metadata.labels["job-name"]
         if job_name is None:
-            LOGGER.error(f"Job name label not found in pod metadata: '{pod.metadata}'. Using millis of start time.")
+            LOGGER.error(
+                f"Job name label not found in pod metadata: '{pod.metadata}'. Using millis of start time."
+            )
             job_name = int(pod.status.start_time.timestamp() * 1000)
 
         log_file_with_path = f"{path}{job_name}-logs.txt"
         bucket_name = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME")
-        LOGGER.debug(f"Upload target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
+        LOGGER.debug(
+            f"Upload target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}"
+        )
         try:
             s3.head_object(Bucket=bucket_name, Key=log_file_with_path)
             log_file_with_path = f"{log_file_with_path}.duplicate.txt"
-            LOGGER.debug(f"Upload target exists. New target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
+            LOGGER.debug(
+                f"Upload target exists. New target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}"
+            )
         except ClientError as e:
-            if e.response['Error']['Code'] != '404':
-                LOGGER.error(f"Checking for object 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}' in bucket failed: {e}")
+            if e.response["Error"]["Code"] != "404":
+                LOGGER.error(
+                    f"Checking for object 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}' in\
+                          bucket failed: {e}"
+                )
         # 3 upload file
         LOGGER.debug("Start writing file")
-        s3.put_object(Bucket=bucket_name, Key=log_file_with_path, Body=str(logs).encode("utf-8"))
+        s3.put_object(
+            Bucket=bucket_name, Key=log_file_with_path, Body=str(logs).encode("utf-8")
+        )
         LOGGER.info(f"Log data saved to '{log_file_with_path}'")
     # 4 Remove finalizer entry to allow pod termination
     pod.metadata.finalizers.remove(finalizer_id)
     body = {
         "metadata": {
-            "finalizers": None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers
+            "finalizers": (
+                None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers
+            )
         }
     }
     deleted_pod, status, headers = k8s_core_api.patch_namespaced_pod_with_http_info(
-        name=name,
-        namespace=namespace,
-        body=body)
+        name=name, namespace=namespace, body=body
+    )
     LOGGER.debug(f"Removed finalizer from pod '{name}' with HTTP status '{status}'")
 
 
 def check_s3_log_upload_variables() -> bool:
     upload_logs_to_s3 = True
     for key in (
-        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT',
-        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY',
-        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET',
-        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME',
-        'PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX'
-        ):
+        "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT",
+        "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY",
+        "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET",
+        "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME",
+        "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX",
+    ):
         value = os.getenv(key=key, default=None)
         if value is None or len(value) == 0:
-            LOGGER.error(f"Required environment variable '{key}' not configured correctly: '{value}'")
+            LOGGER.error(
+                f"Required environment variable '{key}' not configured correctly: '{value}'"
+            )
             upload_logs_to_s3 = False
     if not upload_logs_to_s3:
         LOGGER.info("Will skip s3 upload to log files because of bad configuration")
     return upload_logs_to_s3
 
 
-def kubernetes_finalizer_loop(lockfile:str, namespace:str) -> None:
+def kubernetes_finalizer_loop(lockfile: str, namespace: str) -> None:
     LOGGER.debug(f"Try to get the lock of '{lockfile}'.")
     lock = FileLock(f"{lockfile}.lock", thread_local=False)
     try:
@@ -262,15 +285,22 @@ def kubernetes_finalizer_loop(lockfile:str, namespace:str) -> None:
                             k8s_core_api.list_namespaced_pod,
                             namespace=namespace,
                             resource_version=resource_version,
-                            ):
+                        ):
                             pod = event["object"]
                             event_type = event["type"]
-                            LOGGER.debug(f"Event '{event_type}' with object pod '{pod.metadata.name}' received")
+                            LOGGER.debug(
+                                f"Event '{event_type}' with object pod '{pod.metadata.name}' received"
+                            )
 
-                            if event_type not in ("ADDED", "DELETED") and \
-                                pod.metadata.deletion_timestamp and \
-                                    finalizer_id in (pod.metadata.finalizers or []):
-                                LOGGER.debug(f"Found pod '{pod.metadata.name}' to be deleted '{pod.metadata.deletion_timestamp}' with matching finalizer '{finalizer_id}'.")
+                            if (
+                                event_type not in ("ADDED", "DELETED")
+                                and pod.metadata.deletion_timestamp
+                                and finalizer_id in (pod.metadata.finalizers or [])
+                            ):
+                                LOGGER.debug(
+                                    f"Found pod '{pod.metadata.name}' to be deleted since \
+                                        '{pod.metadata.deletion_timestamp}' with matching finalizer '{finalizer_id}'."
+                                )
                                 kubernetes_finalizer_handle_deletion_event(
                                     k8s_core_api,
                                     finalizer_id,
@@ -279,15 +309,23 @@ def kubernetes_finalizer_loop(lockfile:str, namespace:str) -> None:
                                     upload_logs_to_s3,
                                 )
                             if event_type == "BOOKMARK":
-                                LOGGER.debug(f"Processing 'Bookmark'. Updating resource version: '{resource_version}' -> {pod.metadata.resource_version}'.")
+                                LOGGER.debug(
+                                    f"Processing 'Bookmark': resource version: \
+                                        '{resource_version}' -> {pod.metadata.resource_version}'."
+                                )
                                 resource_version = pod.metadata.resource_version
-                        LOGGER.debug(f"Finished inner watch")
-                    except k8s_client.ApiException as e:
-                        LOGGER.debug("Api Exception received. Resetting resource_version and trigger resyncing.")
+                        LOGGER.debug("Finished inner watch")
+
+                    except k8s_client.ApiException:
+                        LOGGER.debug(
+                            "Api Exception received. Resetting resource_version and trigger resyncing."
+                        )
                         resource_version = None
                         break
     except Timeout:
-        LOGGER.error("Did not get the lock, hopefully someone else will take care of the finalizer task :-(.")
+        LOGGER.error(
+            "Did not get the lock, hopefully someone else will take care of the finalizer task :-(."
+        )
     LOGGER.info("Finished finalizer thread")
 
 
@@ -311,8 +349,8 @@ class KubernetesManager(BaseManager):
         # 2. try service account
         # TODO: maybe switch order to try service account first
         #
-        if manager_def.get('mode') == 'test':
-            self.namespace = 'test'
+        if manager_def.get("mode") == "test":
+            self.namespace = "test"
         else:
             try:
                 k8s_config.load_kube_config()
@@ -325,21 +363,27 @@ class KubernetesManager(BaseManager):
             self.batch_v1 = k8s_client.BatchV1Api()
             self.core_api = k8s_client.CoreV1Api()
         # set logging for dependencies
-        if manager_def.get('logging'):
-            for lib, level in manager_def.get('logging').items():
+        if manager_def.get("logging"):
+            for lib, level in manager_def.get("logging").items():
                 LOGGER.debug(f"Set log level '{level}' for library '{lib}'")
-                logging.getLogger(lib).setLevel(getattr(logging, level.upper(), logging.WARNING))
+                logging.getLogger(lib).setLevel(
+                    getattr(logging, level.upper(), logging.WARNING)
+                )
         #
         # start finalizer controller
-        if manager_def.get('finalizer_controller'):
+        if manager_def.get("finalizer_controller"):
             self.finalizer_controller = Thread(
                 target=kubernetes_finalizer_loop,
                 args=[
-                    os.path.join(tempfile.gettempdir(), "pygeoapi-k8s-job-manager-one-finalizer-thread"),
+                    os.path.join(
+                        tempfile.gettempdir(),
+                        "pygeoapi-k8s-job-manager-one-finalizer-thread",
+                    ),
                     self.namespace,
                 ],
                 # it will be killed, if it's the last thread in the application
-                daemon=True)
+                daemon=True,
+            )
             self.finalizer_controller.start()
 
     def add_job(self, job_metadata):
@@ -350,7 +394,7 @@ class KubernetesManager(BaseManager):
         # we could update the metadata by changing the job annotations
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
 
-    def get_jobs(self, status = None, limit = None, offset = None):
+    def get_jobs(self, status=None, limit=None, offset=None):
         """
         Get process jobs, optionally filtered by status
 
@@ -372,9 +416,11 @@ class KubernetesManager(BaseManager):
         k8s_jobs = sorted(
             (
                 k8s_job
-                for k8s_job in k8s_client.BatchV1Api().list_namespaced_job(
+                for k8s_job in k8s_client.BatchV1Api()
+                .list_namespaced_job(
                     namespace=self.namespace,
-                ).items
+                )
+                .items
                 if is_k8s_job_name(k8s_job.metadata.name)
             ),
             key=get_start_time_from_job,
@@ -382,7 +428,9 @@ class KubernetesManager(BaseManager):
         )
 
         number_matched = len(k8s_jobs)
-        LOGGER.debug(f"Received {number_matched} jobs from cluster. Applying limit '{limit}' and offset '{offset}', if given.")
+        LOGGER.debug(
+            f"Received {number_matched} jobs from cluster. Applying limit '{limit}' and offset '{offset}', if given."
+        )
 
         # NOTE: need to paginate before expensive single job serialization
         if offset:
@@ -436,7 +484,9 @@ class KubernetesManager(BaseManager):
             # should not happen and be handled already in self.get_job()
             raise JobNotFoundError(f"No job with id '{job_id}' found!")
         elif (JobStatus[job["status"]]) != JobStatus.successful:
-            raise JobResultNotFoundError(f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found.")
+            raise JobResultNotFoundError(
+                f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found."
+            )
         else:
             # ATM: get pod and pod logs and return them json encoded
             pod: k8s_client.V1Pod = pod_for_job_id(self.namespace, job["identifier"])
@@ -446,7 +496,11 @@ class KubernetesManager(BaseManager):
                 raise JobResultNotFoundError(f"Pod not found for job '{job_id}'")
             LOGGER.debug(f"metadata.name   : '{pod.metadata.name}'")
             LOGGER.debug(f"container name  : '{pod.spec.containers[0].name}")
-            logs = k8s_client.CoreV1Api().read_namespaced_pod_log(name=pod.metadata.name, namespace=pod.metadata.namespace, container=pod.spec.containers[0].name)
+            logs = k8s_client.CoreV1Api().read_namespaced_pod_log(
+                name=pod.metadata.name,
+                namespace=pod.metadata.namespace,
+                container=pod.spec.containers[0].name,
+            )
             if logs is None:
                 msg = f"Could not retrieve logs for job '{job_id}'"
                 LOGGER.error(msg)
@@ -456,13 +510,15 @@ class KubernetesManager(BaseManager):
 
     def _execute_handler_sync(
         self,
-        p: BaseProcessor, # EHJ: why BaseProcessor here, if it is passed directly into a
-                          # another function that supports/expects k8s Processors only!
+        p: BaseProcessor,  # EHJ: why BaseProcessor here, if it is passed directly into a
+        # another function that supports/expects k8s Processors only!
         job_id,
         data_dict: dict,
         requested_outputs: Optional[dict] = None,
         subscriber: Optional[Subscriber] = None,
-        requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
+        requested_response: Optional[
+            RequestedResponse
+        ] = RequestedResponse.raw.value,  # noqa
     ) -> tuple[Optional[str], Optional[Any], JobStatus]:
         """
         Synchronous execution handler
@@ -500,78 +556,88 @@ class KubernetesManager(BaseManager):
         return (mimetype, result, status)
 
     def _execute_handler_async(
-            self,
-            p: KubernetesProcessor,
-            job_id,
-            data_dict,
-            requested_outputs: Optional[dict] = None,
-            subscriber: Optional[Subscriber] = None,
-            requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
-        ) -> tuple[str, dict, JobStatus]:
-            """
-            In practice k8s jobs are always async.
+        self,
+        p: KubernetesProcessor,
+        job_id,
+        data_dict,
+        requested_outputs: Optional[dict] = None,
+        subscriber: Optional[Subscriber] = None,
+        requested_response: Optional[
+            RequestedResponse
+        ] = RequestedResponse.raw.value,  # noqa
+    ) -> tuple[str, dict, JobStatus]:
+        """
+        In practice k8s jobs are always async.
 
-            :param p: `pygeoapi.process` object
-            :param job_id: job identifier
-            :param data_dict: `dict` of data parameters
+        :param p: `pygeoapi.process` object
+        :param job_id: job identifier
+        :param data_dict: `dict` of data parameters
 
-            :returns: tuple of None (i.e. initial response payload)
-                      and JobStatus.accepted (i.e. initial job status)
-            """
-            if not isinstance(p, KubernetesProcessor):
-                raise NotImplementedError(f"'{type(p).__name__}' is not a KubernetesProcessor. KubernetesManager supports only KubernetesProcessor processes.")
-
-            self._check_auth_token(data_dict)
-
-            job_name = format_job_name(job_id=job_id)
-            job_pod_spec = p.create_job_pod_spec(
-                data=data_dict,
-                job_name=job_name,
+        :returns: tuple of None (i.e. initial response payload)
+                  and JobStatus.accepted (i.e. initial job status)
+        """
+        if not isinstance(p, KubernetesProcessor):
+            raise NotImplementedError(
+                f"'{type(p).__name__}' is not a KubernetesProcessor as required by KubernetesManager."
             )
 
-            annotations = {
-                "identifier": job_id,
-                "process_id": p.metadata.get("id"),
-                K8S_ANNOTATION_KEY_JOB_START: now_str(),
-                K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
-                "mimetype": p.mimetype if p.mimetype else "application/json",
-                **job_pod_spec.extra_annotations,
-            }
+        self._check_auth_token(data_dict)
 
-            job = k8s_client.V1Job(
-                api_version="batch/v1",
-                kind="Job",
-                metadata=k8s_client.V1ObjectMeta(
-                    name=job_name,
-                    annotations={
-                        format_annotation_key(k): v for k, v in annotations.items()
-                    },
+        job_name = format_job_name(job_id=job_id)
+        job_pod_spec = p.create_job_pod_spec(
+            data=data_dict,
+            job_name=job_name,
+        )
+
+        annotations = {
+            "identifier": job_id,
+            "process_id": p.metadata.get("id"),
+            K8S_ANNOTATION_KEY_JOB_START: now_str(),
+            K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
+            "mimetype": p.mimetype if p.mimetype else "application/json",
+            **job_pod_spec.extra_annotations,
+        }
+
+        job = k8s_client.V1Job(
+            api_version="batch/v1",
+            kind="Job",
+            metadata=k8s_client.V1ObjectMeta(
+                name=job_name,
+                annotations={
+                    format_annotation_key(k): v for k, v in annotations.items()
+                },
+            ),
+            spec=k8s_client.V1JobSpec(
+                template=k8s_client.V1PodTemplateSpec(
+                    # metadata=k8s_client.V1ObjectMeta(labels=job_pod_spec.extra_labels),
+                    spec=job_pod_spec.pod_spec,
                 ),
-                spec=k8s_client.V1JobSpec(
-                    template=k8s_client.V1PodTemplateSpec(
-                        spec=job_pod_spec.pod_spec,
-                    ),
-                    backoff_limit=0,
-                    # about 3 months (100 days)
-                    ttl_seconds_after_finished=60 * 60 * 24 * 100,
-                ),
-            )
+                backoff_limit=0,
+                # about 3 months (100 days)
+                # TODO MUST be configurable (by job, processor, or global)
+                ttl_seconds_after_finished=60 * 60 * 24 * 100,
+            ),
+        )
 
-            self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
+        LOGGER.debug(f"Trying to create job in namespace '{self.namespace}': '{job}")
 
-            LOGGER.info("Add job %s in ns %s", job.metadata.name, self.namespace)
+        self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
 
-            return ("application/json", {}, JobStatus.accepted)
+        LOGGER.info("Add job %s in ns %s", job.metadata.name, self.namespace)
 
-    def _check_auth_token(self, data_dict:dict):
+        return ("application/json", {}, JobStatus.accepted)
+
+    def _check_auth_token(self, data_dict: dict):
         key = "PYGEOAPI_K8S_MANAGER_API_TOKEN"
         token = data_dict["token"]
         if token is None:
-            raise ProcessorExecuteError('Identify yourself with valid token!')
+            raise ProcessorExecuteError("Identify yourself with valid token!")
 
-        if token != os.getenv(key, "token"):
-            LOGGER.error(f"WRONG INTERNAL API TOKEN '{token}' ('{type(token)}') != '{os.getenv(key, 'token')}' ('{type(os.getenv(key, 'token'))}')")
-            raise ProcessorExecuteError('ACCESS DENIED: wrong token')
+        if token != os.getenv(key):
+            LOGGER.error(
+                f"WRONG INTERNAL API TOKEN '{token}' ('{type(token)}') != '{os.getenv(key)}' ('{type(os.getenv(key))}')"
+            )
+            raise ProcessorExecuteError("ACCESS DENIED: wrong token")
 
 
 def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
@@ -581,8 +647,7 @@ def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
         events: k8s_client.V1EventList = k8s_client.CoreV1Api().list_namespaced_event(
             namespace=namespace,
             field_selector=(
-                f"involvedObject.name={job.metadata.name},"
-                "involvedObject.kind=Job"
+                f"involvedObject.name={job.metadata.name}," "involvedObject.kind=Job"
             ),
         )
         if items := events.items:
@@ -609,7 +674,7 @@ def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
 
 
 def pod_for_job_id(namespace: str, job_id: str) -> Optional[k8s_client.V1Pod]:
-    label_selector=f"job-name={format_job_name(job_id)}"
+    label_selector = f"job-name={format_job_name(job_id)}"
     LOGGER.debug(f"label_selector: '{label_selector}'")
     pods: k8s_client.V1PodList = k8s_client.CoreV1Api().list_namespaced_pod(
         namespace=namespace, label_selector=label_selector
@@ -660,7 +725,9 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
     status = job_status_from_k8s(job.status)
     start_time = get_start_time_from_job(job)
     completion_time = get_completion_time(job)
-    completion_time = completion_time.strftime(DATETIME_FORMAT) if completion_time else None
+    completion_time = (
+        completion_time.strftime(DATETIME_FORMAT) if completion_time else None
+    )
     updated_time = completion_time if completion_time else start_time
     # default values in case we don't get them from metadata
     default_progress = "100" if status == JobStatus.successful else "1"
@@ -688,10 +755,13 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
 def get_start_time_from_job(job: k8s_client.V1Job) -> str:
     key = format_annotation_key(K8S_ANNOTATION_KEY_JOB_START)
     # if not available via annotations, use k8s object creation time
-    start_time = job.metadata.annotations.get(key, "") if job.metadata.annotations and job.metadata.annotations.get(key) else job.metadata.creation_timestamp
+    start_time = (
+        job.metadata.annotations.get(key, "")
+        if job.metadata.annotations and job.metadata.annotations.get(key)
+        else job.metadata.creation_timestamp
+    )
     LOGGER.debug(f"found start time: {start_time}")
     return start_time
-    # return job.metadata.annotations.get(key, "") if job.metadata.annotations and job.metadata.annotations.get(key) else job.metadata.creation_timestamp
 
 
 def get_completion_time(job: k8s_client.V1Job) -> Optional[datetime]:

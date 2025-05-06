@@ -28,7 +28,6 @@
 # =================================================================
 import datetime
 from http import HTTPStatus
-import json
 import logging
 import os
 import re
@@ -85,7 +84,7 @@ def format_annotation_key(key: str) -> str:
     return f"{_ANNOTATIONS_PREFIX}{key}"
 
 
-_JOB_NAME_PREFIX = os.getenv("PYGEOAPI_K8S_MANAGER_JOB_NAME_PREFIX","pygeoapi-job-")
+_JOB_NAME_PREFIX = os.getenv("PYGEOAPI_K8S_MANAGER_JOB_NAME_PREFIX", "pygeoapi-job-")
 
 
 def format_job_name(job_id: str) -> str:

@@ -72,6 +72,7 @@ jobs:
         pip3 install -r requirements.txt
         pip3 install -r requirements-dev.txt
         pytest tests/
+        flake8 pygeoapi_kubernetes_manager
     -
       name: Build and push Docker image
       uses: docker/build-push-action@v6

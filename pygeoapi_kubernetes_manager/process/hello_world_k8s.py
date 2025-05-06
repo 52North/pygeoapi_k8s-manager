@@ -34,9 +34,6 @@ from dataclasses import dataclass
 import json
 import logging
 
-import copy
-from typing import Any
-
 from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
 
 from pygeoapi_kubernetes_manager.util import ProcessorClientError
@@ -48,65 +45,60 @@ LOGGER = logging.getLogger(__name__)
 
 #: Process metadata and description
 PROCESS_METADATA = {
-    'version': '0.1.0',
-    'id': 'hello-world-k8s',
-    'title': {
-        'en': 'Hello World k8s',
+    "version": "0.1.0",
+    "id": "hello-world-k8s",
+    "title": {
+        "en": "Hello World k8s",
     },
-    'description': {
-        'en': 'An example process that takes a name as input, and echoes '
-              'it back as output. Intended to demonstrate a simple '
-              'process with a single literal input.',
+    "description": {
+        "en": "An example process that takes a name as input, and echoes "
+        "it back as output. Intended to demonstrate a simple "
+        "process with a single literal input.",
     },
-    'jobControlOptions': ['async-execute'],
-    'keywords': ['hello world', 'example', 'echo', 'k8s', 'KubernetesManager'],
-    'links': [{
-        'type': 'text/html',
-        'rel': 'about',
-        'title': 'information',
-        'href': 'https://example.org/process',
-        'hreflang': 'en-US'
-    }],
-    'inputs': {
-        'name': {
-            'title': 'Name',
-            'description': 'The name of the person or entity that you wish to'
-                           'be echoed back as an output',
-            'schema': {
-                'type': 'string'
-            },
-            'minOccurs': 1,
-            'maxOccurs': 1,
-            'keywords': ['full name', 'personal']
+    "jobControlOptions": ["async-execute"],
+    "keywords": ["hello world", "example", "echo", "k8s", "KubernetesManager"],
+    "links": [
+        {
+            "type": "text/html",
+            "rel": "about",
+            "title": "information",
+            "href": "https://example.org/process",
+            "hreflang": "en-US",
+        }
+    ],
+    "inputs": {
+        "name": {
+            "title": "Name",
+            "description": "The name of the person or entity that you wish to"
+            "be echoed back as an output",
+            "schema": {"type": "string"},
+            "minOccurs": 1,
+            "maxOccurs": 1,
+            "keywords": ["full name", "personal"],
         },
-        'message': {
-            'title': 'Message',
-            'description': 'An optional message to echo as well',
-            'schema': {
-                'type': 'string'
-            },
-            'minOccurs': 0,
-            'maxOccurs': 1,
-            'keywords': ['message']
+        "message": {
+            "title": "Message",
+            "description": "An optional message to echo as well",
+            "schema": {"type": "string"},
+            "minOccurs": 0,
+            "maxOccurs": 1,
+            "keywords": ["message"],
+        },
+    },
+    "outputs": {
+        "echo": {
+            "title": "Hello, world",
+            "description": 'A "hello world" echo with the name and (optional)'
+            " message submitted for processing",
+            "schema": {"type": "object", "contentMediaType": "application/json"},
         }
     },
-    'outputs': {
-        'echo': {
-            'title': 'Hello, world',
-            'description': 'A "hello world" echo with the name and (optional)'
-                           ' message submitted for processing',
-            'schema': {
-                'type': 'object',
-                'contentMediaType': 'application/json'
-            }
+    "example": {
+        "inputs": {
+            "name": "World",
+            "message": "An optional message.",
         }
     },
-    'example': {
-        'inputs': {
-            'name': 'World',
-            'message': 'An optional message.',
-        }
-    }
 }
 
 
@@ -128,12 +120,10 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
 
     """
 
-
     @dataclass(frozen=True)
-    class Parameters():
+    class Parameters:
         message: str
         name: str
-
 
     def __init__(self, processor_def: dict):
         super().__init__(processor_def, PROCESS_METADATA)
@@ -143,10 +133,8 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
 
-
-    def create_job_pod_spec(self,
-        data: dict,
-        job_name: str
+    def create_job_pod_spec(
+        self, data: dict, job_name: str
     ) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
 
@@ -175,7 +163,7 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
             pod_spec=k8s_client.V1PodSpec(
                 restart_policy="Never",
                 # NOTE: first container is used for status check
-                containers=[image_container], # + extra_config.containers,
+                containers=[image_container],  # + extra_config.containers,
                 # we need this to be able to terminate the sidecar container
                 # https://github.com/kubernetes/kubernetes/issues/25908
                 share_process_namespace=True,
@@ -183,14 +171,15 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
                 enable_service_links=False,
             ),
             extra_annotations={
-                "parameters" : json.dumps({
-                    "name": requested.name,
-                    "message": requested.message,
-                }),
+                "parameters": json.dumps(
+                    {
+                        "name": requested.name,
+                        "message": requested.message,
+                    }
+                ),
                 "job-name": job_name,
             },
         )
 
-
     def __repr__(self):
-        return f'<HelloWorldProcessor> {self.name}'
+        return f"<HelloWorldProcessor> {self.name}"

@@ -28,3 +28,5 @@
 # =================================================================
 from .hello_world_k8s import HelloWorldK8sProcessor
 from .generic_image import GenericImageProcessor
+
+__all__ = [HelloWorldK8sProcessor, GenericImageProcessor]
