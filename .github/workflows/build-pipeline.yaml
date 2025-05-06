@@ -67,6 +67,12 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_TOKEN }}
     -
+      name: run unit tests
+      run: |
+        pip3 install -r requirements.txt
+        pip3 install -r requirements-dev.txt
+        pytest tests/
+    -
       name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
