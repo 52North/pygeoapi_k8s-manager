@@ -32,7 +32,6 @@ import re
 import os
 import pytest
 from unittest.mock import (
-    MagicMock,
     mock_open,
     patch,
 )
@@ -62,7 +61,7 @@ def test_format_annotation_key_raises_error_on_too_long_key():
     with pytest.raises(ValueError) as error:
         format_annotation_key("too-------------------------------------long-test-annotation-key")
     assert error.type is ValueError
-    assert error.match("Specified key 'too-------------------------------------long-test-annotation-key' is longer than allowed API limit 63: '64'")
+    assert error.match("Specified key 'too-------------------------------------long-test-annotation-key' is longer than allowed API limit 63: '64'")  # noqa: E501
 
 
 def test_format_annotation_key_with_empty_string():
@@ -74,12 +73,12 @@ def test_parse_annotation_key():
 
 
 def test_parse_annotation_key_parsing_empty_string_return_None():
-    assert parse_annotation_key("") == None
+    assert parse_annotation_key("") is None
 
 
 def test_parse_annotation_key_parse_None_throws_Error():
     with pytest.raises(TypeError) as error:
-        parse_annotation_key(None) == None
+        parse_annotation_key(None)
     assert error.type is TypeError
     assert error.match("expected string or bytes-like object, got 'NoneType'")
 
@@ -116,11 +115,11 @@ def test_format_job_name():
 
 
 def test_is_k8s_job_name_with_false_name():
-    assert is_k8s_job_name("test") == False
+    assert is_k8s_job_name("test") is False
 
 
 def test_is_k8s_job_name_with_correct_name():
-    assert is_k8s_job_name("pygeoapi-job-test") == True
+    assert is_k8s_job_name("pygeoapi-job-test") is True
 
 
 def test_job_id_from_job_name_with_correct_name():

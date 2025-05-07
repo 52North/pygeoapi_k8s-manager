@@ -30,15 +30,9 @@ import logging
 import os
 import pytest
 
-from unittest.mock import (
-    MagicMock,
-    patch
-)
+from unittest.mock import MagicMock, patch
 
-from pygeoapi.process.base import (
-    JobNotFoundError,
-    JobResultNotFoundError
-)
+from pygeoapi.process.base import JobNotFoundError, JobResultNotFoundError
 
 from pygeoapi_kubernetes_manager.manager import (
     KubernetesManager,
@@ -49,7 +43,6 @@ from pygeoapi_kubernetes_manager.manager import (
     job_from_k8s,
     check_s3_log_upload_variables,
     kubernetes_finalizer_handle_deletion_event,
-    kubernetes_finalizer_loop,
 )
 
 from pygeoapi_kubernetes_manager.util import format_job_name, format_annotation_key
@@ -96,15 +89,16 @@ def k8s_job_1(process_id):
         metadata=V1ObjectMeta(
             name=format_job_name("test-1"),
             annotations={
-                format_annotation_key(
-                    "started"
-                ): "2025-01-12T13:39:03.000000Z",
+                format_annotation_key("started"): "2025-01-12T13:39:03.000000Z",
                 format_annotation_key("identifier"): "identifier-1",
                 format_annotation_key("process_id"): process_id,
             },
         ),
         status=V1JobStatus(
-            succeeded=1, completion_time=datetime.datetime.fromisoformat("2025-01-12T13:42:03.000000Z")
+            succeeded=1,
+            completion_time=datetime.datetime.fromisoformat(
+                "2025-01-12T13:42:03.000000Z"
+            ),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-1": "test-value-1"}),
@@ -119,15 +113,16 @@ def k8s_job_2(process_id):
         metadata=V1ObjectMeta(
             name=format_job_name("test-2"),
             annotations={
-                format_annotation_key(
-                    "started"
-                ): "2025-01-19T15:42:01.000000Z",
+                format_annotation_key("started"): "2025-01-19T15:42:01.000000Z",
                 format_annotation_key("identifier"): "identifier-2",
                 format_annotation_key("process_id"): process_id,
             },
         ),
         status=V1JobStatus(
-            succeeded=1, completion_time=datetime.datetime.fromisoformat("2025-01-19T15:52:01.000000Z")
+            succeeded=1,
+            completion_time=datetime.datetime.fromisoformat(
+                "2025-01-19T15:52:01.000000Z"
+            ),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-2": "test-value-2"}),
@@ -142,9 +137,7 @@ def k8s_job_3_failed(process_id):
         metadata=V1ObjectMeta(
             name=format_job_name("test-3"),
             annotations={
-                format_annotation_key(
-                    "started"
-                ): "2025-01-02T15:42:01.000000Z",
+                format_annotation_key("started"): "2025-01-02T15:42:01.000000Z",
                 format_annotation_key("identifier"): "identifier-3",
                 format_annotation_key("process_id"): process_id,
             },
@@ -290,9 +283,7 @@ def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id)
 
 def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process_id):
     with pytest.raises(JobNotFoundError) as error:
-        with(
-            patch.object(KubernetesManager, "get_job", return_value=None)
-        ):
+        with patch.object(KubernetesManager, "get_job", return_value=None):
             manager.get_job_result(process_id)
     assert error.type is JobNotFoundError
     assert error.match(f"No job with id '{process_id}' found!")
@@ -301,11 +292,10 @@ def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process
 def test_manager_get_job_result_raises_error_on_failed_job(manager, process_id):
     state = "failed"
     with pytest.raises(JobResultNotFoundError) as error:
-        with(
-            patch.object(KubernetesManager, "get_job", return_value={
-                "identifier": process_id,
-                "status": state
-            })
+        with patch.object(
+            KubernetesManager,
+            "get_job",
+            return_value={"identifier": process_id, "status": state},
         ):
             manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
@@ -314,12 +304,15 @@ def test_manager_get_job_result_raises_error_on_failed_job(manager, process_id):
 
 def test_manager_get_job_result_raises_error_on_absent_pod(manager, process_id):
     with pytest.raises(JobResultNotFoundError) as error:
-        with(
-            patch.object(KubernetesManager, "get_job", return_value={
-                "identifier": process_id,
-                "status": "successful"
-            }),
-            patch("pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=None)
+        with (
+            patch.object(
+                KubernetesManager,
+                "get_job",
+                return_value={"identifier": process_id, "status": "successful"},
+            ),
+            patch(
+                "pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=None
+            ),
         ):
             manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
@@ -335,15 +328,21 @@ def mocked_pod():
     return pod
 
 
-def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id, mocked_pod):
+def test_manager_get_job_result_raises_error_on_absent_logs(
+    manager, process_id, mocked_pod
+):
     with pytest.raises(JobResultNotFoundError) as error:
-        with(
-            patch.object(KubernetesManager, "get_job", return_value={
-                "identifier": process_id,
-                "status": "successful"
-            }),
-            patch("pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=mocked_pod),
-            patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=None)
+        with (
+            patch.object(
+                KubernetesManager,
+                "get_job",
+                return_value={"identifier": process_id, "status": "successful"},
+            ),
+            patch(
+                "pygeoapi_kubernetes_manager.manager.pod_for_job_id",
+                return_value=mocked_pod,
+            ),
+            patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=None),
         ):
             manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
@@ -352,13 +351,17 @@ def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id,
 
 def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
     logs_expected = "test log string"
-    with(
-        patch.object(KubernetesManager, "get_job", return_value={
-            "identifier": process_id,
-            "status": "successful"
-        }),
-        patch("pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=mocked_pod),
-        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_expected)
+    with (
+        patch.object(
+            KubernetesManager,
+            "get_job",
+            return_value={"identifier": process_id, "status": "successful"},
+        ),
+        patch(
+            "pygeoapi_kubernetes_manager.manager.pod_for_job_id",
+            return_value=mocked_pod,
+        ),
+        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_expected),
     ):
         mimetype, logs_received = manager.get_job_result(process_id)
     assert mimetype is None
@@ -460,13 +463,19 @@ def test_execute_job(manager, process_id):
 
 @pytest.fixture
 def manager_with_log_level():
-    return KubernetesManager({"name": "test-manager", "mode": "test", "logging": { "kubernetes":"INFO", "boto3":"CRITICAL"}})
+    return KubernetesManager(
+        {
+            "name": "test-manager",
+            "mode": "test",
+            "logging": {"kubernetes": "INFO", "boto3": "CRITICAL"},
+        }
+    )
 
 
 def test_manager_log_level_configuration(manager_with_log_level):
     manager_with_log_level
-    assert logging.getLogger('kubernetes').getEffectiveLevel() == logging.INFO
-    assert logging.getLogger('boto3').getEffectiveLevel() == logging.CRITICAL
+    assert logging.getLogger("kubernetes").getEffectiveLevel() == logging.INFO
+    assert logging.getLogger("boto3").getEffectiveLevel() == logging.CRITICAL
 
 
 @pytest.fixture
@@ -475,15 +484,16 @@ def k8s_job_without_mimetype_annotation(process_id):
         metadata=V1ObjectMeta(
             name=format_job_name("test-2"),
             annotations={
-                format_annotation_key(
-                    "started"
-                ): "2025-01-19T15:42:01.000000Z",
+                format_annotation_key("started"): "2025-01-19T15:42:01.000000Z",
                 format_annotation_key("identifier"): "identifier-2",
                 format_annotation_key("process_id"): process_id,
             },
         ),
         status=V1JobStatus(
-            succeeded=1, completion_time=datetime.datetime.fromisoformat("2025-01-19T15:52:01.000000Z")
+            succeeded=1,
+            completion_time=datetime.datetime.fromisoformat(
+                "2025-01-19T15:52:01.000000Z"
+            ),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-2": "test-value-2"}),
@@ -492,14 +502,18 @@ def k8s_job_without_mimetype_annotation(process_id):
     )
 
 
-def test_job_get_default_mimetype_if_annotation_is_missing(k8s_job_without_mimetype_annotation):
+def test_job_get_default_mimetype_if_annotation_is_missing(
+    k8s_job_without_mimetype_annotation,
+):
     job = job_from_k8s(k8s_job_without_mimetype_annotation, "test-message")
 
     assert job["mimetype"] == "application/json"
 
 
 def test_kubernetes_processor_sets_mimetype():
-    processor = KubernetesProcessor(process_metadata={},processor_def={"name":"test-name"})
+    processor = KubernetesProcessor(
+        process_metadata={}, processor_def={"name": "test-name"}
+    )
 
     assert processor.mimetype == "application/json"
 
@@ -509,7 +523,9 @@ def test_manager_starts_no_thread_if_not_configured(manager):
         manager.finalizer_controller is None
 
     assert error.type is AttributeError
-    assert error.match("'KubernetesManager' object has no attribute 'finalizer_controller'")
+    assert error.match(
+        "'KubernetesManager' object has no attribute 'finalizer_controller'"
+    )
 
 
 def test_check_s3_log_upload_variables():
@@ -518,26 +534,26 @@ def test_check_s3_log_upload_variables():
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"] = "configured"
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME"] = "configured"
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX"] = "configured"
-    assert check_s3_log_upload_variables() == False
+    assert check_s3_log_upload_variables() is False
 
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT"] = "configured"
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY", None)
-    assert check_s3_log_upload_variables() == False
+    assert check_s3_log_upload_variables() is False
 
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY"] = "configured"
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET", None)
-    assert check_s3_log_upload_variables() == False
+    assert check_s3_log_upload_variables() is False
 
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"] = "configured"
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME", None)
-    assert check_s3_log_upload_variables() == False
+    assert check_s3_log_upload_variables() is False
 
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME"] = "configured"
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX", None)
-    assert check_s3_log_upload_variables() == False
+    assert check_s3_log_upload_variables() is False
 
     os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX"] = "configured"
-    assert check_s3_log_upload_variables() == True
+    assert check_s3_log_upload_variables() is True
 
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT", None)
     os.environ.pop("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY", None)
@@ -557,7 +573,7 @@ def test_kubernetes_finalizer_handle_deletion_event_does_nothing_if_not_required
         finalizer_id="test_finalizer_id",
         namespace="test_namespace",
         pod=test_pod,
-        upload_logs=False
+        upload_logs=False,
     )
 
     k8s_core_api.read_namespaced_pod_log_with_http_info.assert_not_called()
@@ -568,19 +584,24 @@ def test_kubernetes_finalizer_handle_deletion_event_removes_finalizer_if_no_logs
     k8s_core_api.read_namespaced_pod_log_with_http_info.return_value = None
     deleted_pod = MagicMock()
     deleted_pod.metadata.name = "deleted-pod"
-    k8s_core_api.patch_namespaced_pod_with_http_info.return_value = (deleted_pod, 200, )
+    k8s_core_api.patch_namespaced_pod_with_http_info.return_value = (
+        deleted_pod,
+        200,
+    )
     finalizer_id = "test_finalizer_id"
     test_pod = MagicMock()
     test_pod.metadata.name = "test-pod"
     test_pod.metadata.finalizers = ["not-my-finalizer", finalizer_id]
 
-    with patch("pygeoapi_kubernetes_manager.manager.upload_logs_to_s3") as mocked_upload_logs_to_s3:
+    with patch(
+        "pygeoapi_kubernetes_manager.manager.upload_logs_to_s3"
+    ) as mocked_upload_logs_to_s3:
         kubernetes_finalizer_handle_deletion_event(
             k8s_core_api=k8s_core_api,
             finalizer_id=finalizer_id,
             namespace="test_namespace",
             pod=test_pod,
-            upload_logs=False
+            upload_logs=False,
         )
 
         k8s_core_api.read_namespaced_pod_log_with_http_info.assert_called_once()
@@ -609,7 +630,9 @@ def test_get_job_name_returns_alternative_job_name():
 
 @pytest.fixture
 def manager_with_finalizer():
-    return KubernetesManager({"name": "test-manager", "mode": "test", "finalizer_controller": True})
+    return KubernetesManager(
+        {"name": "test-manager", "mode": "test", "finalizer_controller": True}
+    )
 
 
 @pytest.mark.skip("Causing to much logging noise atm")

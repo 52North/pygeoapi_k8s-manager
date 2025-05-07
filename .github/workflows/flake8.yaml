@@ -18,3 +18,4 @@ jobs:
           pip3 install -r requirements.txt
           pip3 install -r requirements-dev.txt
           flake8 pygeoapi_kubernetes_manager
+          flake8 tests

@@ -48,7 +48,7 @@ def test_init(processor):
     assert processor.command == "test-command"
     assert processor.default_image == "test-image"
     assert processor.name == "pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor"
-    assert processor.tolerations == None
+    assert processor.tolerations is None
 
 
 @pytest.fixture()
@@ -78,11 +78,10 @@ def test_create_job_pod_spec(processor, data):
     assert container.image == "test-image"
     assert container.name == "hello-world-k8s"
 
+
 def test_raise_error_on_wrong_input(processor):
     with pytest.raises(ProcessorClientError) as error:
         processor.create_job_pod_spec(data={}, job_name=None)
 
     assert error.type is ProcessorClientError
-    assert error.match(re.escape("Invalid parameter: HelloWorldK8sProcessor.Parameters.__init__() missing 2 required positional arguments: 'message' and 'name'"))
-
-
+    assert error.match(re.escape("Invalid parameter: HelloWorldK8sProcessor.Parameters.__init__() missing 2 required positional arguments: 'message' and 'name'"))  # noqa: E501

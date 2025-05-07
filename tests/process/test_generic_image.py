@@ -26,7 +26,6 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
-import json
 import pytest
 
 from pygeoapi_kubernetes_manager.process import GenericImageProcessor
@@ -57,7 +56,7 @@ def processor() -> GenericImageProcessor:
                         "type": "text/html",
                         "rel": "about",
                         "title": "repository",
-                        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/pygeoapi_kubernetes_manager/process/generic_image.py",
+                        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/pygeoapi_kubernetes_manager/process/generic_image.py",  # noqa: E501
                         "hreflang": "en-UK",
                     }
                 ],
@@ -132,7 +131,7 @@ def processor() -> GenericImageProcessor:
 def test_processor_def_is_parsed(processor):
     assert len(processor.command) == 1
     assert processor.command[0] == "test-command"
-    assert processor.supports_outputs == True
+    assert processor.supports_outputs is True
     assert processor.default_image == "example-image"
     assert processor.mimetype == "test-output/mimetype"
     assert processor.image_pull_secret == "test-image-pull-secret"
@@ -149,7 +148,7 @@ def test_processor_def_is_parsed(processor):
         "type": "text/html",
         "rel": "about",
         "title": "repository",
-        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/pygeoapi_kubernetes_manager/process/generic_image.py",
+        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/pygeoapi_kubernetes_manager/process/generic_image.py",  # noqa: E501
         "hreflang": "en-UK",
     }
     assert len(meta["inputs"]) == 1
@@ -181,7 +180,7 @@ def test_processor_def_is_parsed(processor):
     assert env[1]["name"] == "simple_env_name"
     assert env[1]["value"] == "simple_env_value"
     assert env[2]["name"] == "simple_env_boolean"
-    assert env[2]["value"] == False
+    assert env[2]["value"] is False
 
     res = processor.resources
     assert len(res) == 2
@@ -199,7 +198,7 @@ def test_processor_def_is_parsed(processor):
 
 def test_outputs_mimetype_detection(processor):
     assert processor.mimetype == "test-output/mimetype"
-    assert processor._output_mimetype({}) == None
+    assert processor._output_mimetype({}) is None
     assert processor._output_mimetype({
         "outputs": {
             "output-one": {},
@@ -225,7 +224,8 @@ def test_create_job_pod_spec(processor, data):
 
     annotations = spec.extra_annotations
     assert annotations["job-name"] == "test_job"
-    assert annotations["parameters"] == "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
+    assert annotations["parameters"] == \
+        "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
 
     assert spec.pod_spec
 
@@ -255,7 +255,7 @@ def test_create_job_pod_spec(processor, data):
     assert env[1].value == "simple_env_value"
     assert env[2].name == "simple_env_boolean"
     assert env[2].value == "False"
-    assert env[2].value != False
+    assert env[2].value is not False
 
     res = container.resources
     assert res
@@ -278,14 +278,14 @@ def test_absence_of_storage(processor, data):
     processor.storage = None
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
 
-    assert job_pod_spec.pod_spec.volumes == None
-    assert job_pod_spec.pod_spec.containers[0].volume_mounts == None
+    assert job_pod_spec.pod_spec.volumes is None
+    assert job_pod_spec.pod_spec.containers[0].volume_mounts is None
 
 
 def test_absence_of_resources(processor, data):
     processor.resources = None
     with pytest.raises(NotImplementedError) as error:
-        job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
+        processor.create_job_pod_spec(data=data, job_name="test-job")
 
     assert error.type == NotImplementedError
     assert error.match("Default resources not implemented. Please specify in process resource!")
@@ -295,11 +295,12 @@ def test_absence_of_env(processor, data):
     processor.env = {}
     job_pod_spec = processor.create_job_pod_spec(data=None, job_name="test-job")
 
-    assert job_pod_spec.pod_spec.containers[0].env == None
+    assert job_pod_spec.pod_spec.containers[0].env is None
 
 
 def test_inputs_are_provided_as_env(processor, data):
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
 
     assert job_pod_spec.pod_spec.containers[0].env[3].name == "PYGEOAPI_K8S_MANAGER_INPUTS"
-    assert job_pod_spec.pod_spec.containers[0].env[3].value == "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
+    assert job_pod_spec.pod_spec.containers[0].env[3].value == \
+        "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
