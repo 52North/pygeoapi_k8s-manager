@@ -3,7 +3,11 @@ concurrency:
   group: "pygeoapi-k8s-manager-push-lint"
   cancel-in-progress: true
 on:
-  [ push, pull_request ]
+  # all pushes and PRs, but not tags
+  push:
+    branches:
+      - '**'
+  pull_request:
 jobs:
   linter:
     runs-on: ubuntu-latest
