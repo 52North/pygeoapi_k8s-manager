@@ -61,7 +61,9 @@ def test_format_annotation_key_raises_error_on_too_long_key():
     with pytest.raises(ValueError) as error:
         format_annotation_key("too-------------------------------------long-test-annotation-key")
     assert error.type is ValueError
-    assert error.match("Specified key 'too-------------------------------------long-test-annotation-key' is longer than allowed API limit 63: '64'")  # noqa: E501
+    assert error.match(
+        "Specified key 'too-------------------------------------long-test-annotation-key' is longer than allowed API limit 63: '64'"
+    )  # noqa: E501
 
 
 def test_format_annotation_key_with_empty_string():
@@ -93,21 +95,17 @@ def test_current_namespace():
 
 def test_current_namespace_use_environment_variable_if_set():
     test_namespace = "test-namespace-env-variable"
-    os.environ['PYGEOAPI_K8S_MANAGER_NAMESPACE'] = test_namespace
+    os.environ["PYGEOAPI_K8S_MANAGER_NAMESPACE"] = test_namespace
     read_namespace = current_namespace()
     assert test_namespace == read_namespace
-    del os.environ['PYGEOAPI_K8S_MANAGER_NAMESPACE']
+    del os.environ["PYGEOAPI_K8S_MANAGER_NAMESPACE"]
 
 
 def test_current_namespace_throws_error_when_not_in_cluster_and_required_environment_variable_not_set():
     with pytest.raises(KeyError) as error:
         current_namespace()
     assert error.type is KeyError
-    assert error.match(
-        re.escape(
-            "Required environment variable \'PYGEOAPI_K8S_MANAGER_NAMESPACE\' is missing."
-        )
-    )
+    assert error.match(re.escape("Required environment variable 'PYGEOAPI_K8S_MANAGER_NAMESPACE' is missing."))
 
 
 def test_format_job_name():

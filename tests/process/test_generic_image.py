@@ -80,11 +80,7 @@ def processor() -> GenericImageProcessor:
                         },
                     }
                 },
-                "example": {
-                    "inputs": {
-                        "name": "test-name"
-                    }
-                }
+                "example": {"inputs": {"name": "test-name"}},
             },
             "default_image": "example-image",
             "command": ["test-command"],
@@ -122,7 +118,7 @@ def processor() -> GenericImageProcessor:
                 {
                     "name": "simple_env_boolean",
                     "value": False,
-                }
+                },
             ],
         }
     )
@@ -199,12 +195,7 @@ def test_processor_def_is_parsed(processor):
 def test_outputs_mimetype_detection(processor):
     assert processor.mimetype == "test-output/mimetype"
     assert processor._output_mimetype({}) is None
-    assert processor._output_mimetype({
-        "outputs": {
-            "output-one": {},
-            "output-two": {}
-        }
-    }) == "application/json"
+    assert processor._output_mimetype({"outputs": {"output-one": {}, "output-two": {}}}) == "application/json"
 
 
 @pytest.fixture()
@@ -224,8 +215,10 @@ def test_create_job_pod_spec(processor, data):
 
     annotations = spec.extra_annotations
     assert annotations["job-name"] == "test_job"
-    assert annotations["parameters"] == \
-        "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
+    assert (
+        annotations["parameters"]
+        == '{"input-str-id": "input-str-value", "input-int-id": 42, "input-boolean-id": false}'
+    )
 
     assert spec.pod_spec
 
@@ -302,5 +295,7 @@ def test_inputs_are_provided_as_env(processor, data):
     job_pod_spec = processor.create_job_pod_spec(data=data, job_name="test-job")
 
     assert job_pod_spec.pod_spec.containers[0].env[3].name == "PYGEOAPI_K8S_MANAGER_INPUTS"
-    assert job_pod_spec.pod_spec.containers[0].env[3].value == \
-        "{\"input-str-id\": \"input-str-value\", \"input-int-id\": 42, \"input-boolean-id\": false}"
+    assert (
+        job_pod_spec.pod_spec.containers[0].env[3].value
+        == '{"input-str-id": "input-str-value", "input-int-id": 42, "input-boolean-id": false}'
+    )

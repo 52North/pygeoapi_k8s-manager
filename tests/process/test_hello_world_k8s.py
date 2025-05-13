@@ -35,12 +35,13 @@ from pygeoapi_kubernetes_manager.util import ProcessorClientError
 
 @pytest.fixture()
 def processor() -> HelloWorldK8sProcessor:
-    return HelloWorldK8sProcessor(processor_def={
-        "name": "pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor",
-        "default_image": "test-image",
-        "command": "test-command",
-        "image_pull_secret": "test-image-pull-secret"
-    }
+    return HelloWorldK8sProcessor(
+        processor_def={
+            "name": "pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor",
+            "default_image": "test-image",
+            "command": "test-command",
+            "image_pull_secret": "test-image-pull-secret",
+        }
     )
 
 
@@ -64,8 +65,8 @@ def test_create_job_pod_spec(processor, data):
 
     assert job_pod_spec is not None
     assert job_pod_spec.extra_annotations == {
-        'parameters': '{"name": "test-name", "message": "test-message"}',
-        'job-name': 'test-job-name',
+        "parameters": '{"name": "test-name", "message": "test-message"}',
+        "job-name": "test-job-name",
     }
     pod = job_pod_spec.pod_spec
     assert pod.active_deadline_seconds is None
@@ -84,4 +85,8 @@ def test_raise_error_on_wrong_input(processor):
         processor.create_job_pod_spec(data={}, job_name=None)
 
     assert error.type is ProcessorClientError
-    assert error.match(re.escape("Invalid parameter: HelloWorldK8sProcessor.Parameters.__init__() missing 2 required positional arguments: 'message' and 'name'"))  # noqa: E501
+    assert error.match(
+        re.escape(
+            "Invalid parameter: HelloWorldK8sProcessor.Parameters.__init__() missing 2 required positional arguments: 'message' and 'name'"
+        )
+    )  # noqa: E501

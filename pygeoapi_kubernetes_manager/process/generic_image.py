@@ -80,19 +80,13 @@ class GenericImageProcessor(KubernetesProcessor):
         self.default_image: str = processor_def["default_image"]
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = (
-            processor_def["image_pull_secret"]
-            if "image_pull_secret" in processor_def.keys()
-            else None
+            processor_def["image_pull_secret"] if "image_pull_secret" in processor_def.keys() else None
         )
         self.env: dict = processor_def["env"] if "env" in processor_def.keys() else {}
-        self.resources: dict = (
-            processor_def["resources"] if "resources" in processor_def.keys() else None
-        )
+        self.resources: dict = processor_def["resources"] if "resources" in processor_def.keys() else None
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
         self.supports_outputs: bool = True if self.mimetype else False
-        self.storage: dict = (
-            processor_def["storage"] if "storage" in processor_def.keys() else None
-        )
+        self.storage: dict = processor_def["storage"] if "storage" in processor_def.keys() else None
 
     def _output_mimetype(self, metadata: dict) -> str:
         """
@@ -105,9 +99,7 @@ class GenericImageProcessor(KubernetesProcessor):
         if "outputs" not in metadata.keys() or len(metadata["outputs"]) == 0:
             return None
         elif len(metadata["outputs"]) == 1:
-            return next(iter(metadata["outputs"].values()))["schema"][
-                "contentMediaType"
-            ]
+            return next(iter(metadata["outputs"].values()))["schema"]["contentMediaType"]
         else:
             return "application/json"
 
@@ -165,12 +157,8 @@ class GenericImageProcessor(KubernetesProcessor):
     def _res_from_processor_spec(self) -> V1ResourceRequirements:
         # TODO Implement creation of default resources
         if not self.resources:
-            raise NotImplementedError(
-                "Default resources not implemented. Please specify in process resource!"
-            )
-        return V1ResourceRequirements(
-            limits=self.resources["limits"], requests=self.resources["requests"]
-        )
+            raise NotImplementedError("Default resources not implemented. Please specify in process resource!")
+        return V1ResourceRequirements(limits=self.resources["limits"], requests=self.resources["requests"])
 
     def _volume_mounts_from_processor_spec(self) -> list[V1VolumeMount]:
         if not self.storage:
@@ -200,16 +188,12 @@ class GenericImageProcessor(KubernetesProcessor):
             )
         return k8s_volumes
 
-    def _add_inputs_to_env(
-        self, data: dict, k8s_env: list[V1EnvVar] | None
-    ) -> list[V1EnvVar]:
+    def _add_inputs_to_env(self, data: dict, k8s_env: list[V1EnvVar] | None) -> list[V1EnvVar]:
         if data is None or len(data) == 0:
             return k8s_env
         if k8s_env is None:
             k8s_env = []
-        k8s_env.append(
-            V1EnvVar(name="PYGEOAPI_K8S_MANAGER_INPUTS", value=json.dumps(data))
-        )
+        k8s_env.append(V1EnvVar(name="PYGEOAPI_K8S_MANAGER_INPUTS", value=json.dumps(data)))
         return k8s_env
 
     def _extra_annotations_from(self, job_name: str, data: dict | None) -> dict:
@@ -218,18 +202,14 @@ class GenericImageProcessor(KubernetesProcessor):
             annotations["parameters"] = json.dumps(data)
         return annotations
 
-    def create_job_pod_spec(
-        self, data: dict, job_name: str
-    ) -> KubernetesProcessor.JobPodSpec:
+    def create_job_pod_spec(self, data: dict, job_name: str) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
         # TODO add input validation using data and self.metadata["inputs"]
 
         extra_podspec = self._add_tolerations()
 
         if self.image_pull_secret:
-            extra_podspec["image_pull_secrets"] = [
-                k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
-            ]
+            extra_podspec["image_pull_secrets"] = [k8s_client.V1LocalObjectReference(name=self.image_pull_secret)]
 
         k8s_env = self._env_from_processor_spec()
         k8s_env = self._add_inputs_to_env(data, k8s_env)

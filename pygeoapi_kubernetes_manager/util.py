@@ -130,13 +130,8 @@ JobDict = TypedDict(
 
 
 def hide_secret_values(dictionary: dict[str, str]) -> dict[str, str]:
-
     def transform_value(key, value):
-        return (
-            "*"
-            if any(trigger in key.lower() for trigger in ["secret", "key", "password", "token"])
-            else value
-        )
+        return "*" if any(trigger in key.lower() for trigger in ["secret", "key", "password", "token"]) else value
 
     return {key: transform_value(key, value) for key, value in dictionary.items()}
 

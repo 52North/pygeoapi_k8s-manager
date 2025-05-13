@@ -69,8 +69,7 @@ PROCESS_METADATA = {
     "inputs": {
         "name": {
             "title": "Name",
-            "description": "The name of the person or entity that you wish to"
-            "be echoed back as an output",
+            "description": "The name of the person or entity that you wish tobe echoed back as an output",
             "schema": {"type": "string"},
             "minOccurs": 1,
             "maxOccurs": 1,
@@ -88,8 +87,7 @@ PROCESS_METADATA = {
     "outputs": {
         "echo": {
             "title": "Hello, world",
-            "description": 'A "hello world" echo with the name and (optional)'
-            " message submitted for processing",
+            "description": 'A "hello world" echo with the name and (optional) message submitted for processing',
             "schema": {"type": "object", "contentMediaType": "application/json"},
         }
     },
@@ -133,9 +131,7 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
 
-    def create_job_pod_spec(
-        self, data: dict, job_name: str
-    ) -> KubernetesProcessor.JobPodSpec:
+    def create_job_pod_spec(self, data: dict, job_name: str) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
 
         try:
@@ -145,9 +141,7 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
 
         extra_podspec = {}
         if self.image_pull_secret:
-            extra_podspec["image_pull_secrets"] = [
-                k8s_client.V1LocalObjectReference(name=self.image_pull_secret)
-            ]
+            extra_podspec["image_pull_secrets"] = [k8s_client.V1LocalObjectReference(name=self.image_pull_secret)]
 
         image_container = k8s_client.V1Container(
             name="hello-world-k8s",

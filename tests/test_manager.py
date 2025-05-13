@@ -96,9 +96,7 @@ def k8s_job_1(process_id):
         ),
         status=V1JobStatus(
             succeeded=1,
-            completion_time=datetime.datetime.fromisoformat(
-                "2025-01-12T13:42:03.000000Z"
-            ),
+            completion_time=datetime.datetime.fromisoformat("2025-01-12T13:42:03.000000Z"),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-1": "test-value-1"}),
@@ -120,9 +118,7 @@ def k8s_job_2(process_id):
         ),
         status=V1JobStatus(
             succeeded=1,
-            completion_time=datetime.datetime.fromisoformat(
-                "2025-01-19T15:52:01.000000Z"
-            ),
+            completion_time=datetime.datetime.fromisoformat("2025-01-19T15:52:01.000000Z"),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-2": "test-value-2"}),
@@ -148,16 +144,12 @@ def k8s_job_3_failed(process_id):
             active=0,
             conditions=[
                 V1JobCondition(
-                    last_transition_time=datetime.datetime.fromisoformat(
-                        "2025-01-02T15:45:01.000000Z"
-                    ),
+                    last_transition_time=datetime.datetime.fromisoformat("2025-01-02T15:45:01.000000Z"),
                     type="Failed",
                     status="True",
                 ),
                 V1JobCondition(
-                    last_transition_time=datetime.datetime.fromisoformat(
-                        "2025-01-02T15:48:01.000000Z"
-                    ),
+                    last_transition_time=datetime.datetime.fromisoformat("2025-01-02T15:48:01.000000Z"),
                     type="Failed",
                     status="True",
                 ),
@@ -172,9 +164,7 @@ def k8s_job_4_events():
         metadata=V1ObjectMeta(
             name=format_job_name("test-4"),
             annotations={
-                format_annotation_key(
-                    "job-start-datetime"
-                ): "2025-01-19T15:42:01.000000Z",
+                format_annotation_key("job-start-datetime"): "2025-01-19T15:42:01.000000Z",
                 format_annotation_key("identifier"): "identifier-4",
                 format_annotation_key("process_id"): process_id,
             },
@@ -310,9 +300,7 @@ def test_manager_get_job_result_raises_error_on_absent_pod(manager, process_id):
                 "get_job",
                 return_value={"identifier": process_id, "status": "successful"},
             ),
-            patch(
-                "pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=None
-            ),
+            patch("pygeoapi_kubernetes_manager.manager.pod_for_job_id", return_value=None),
         ):
             manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
@@ -328,9 +316,7 @@ def mocked_pod():
     return pod
 
 
-def test_manager_get_job_result_raises_error_on_absent_logs(
-    manager, process_id, mocked_pod
-):
+def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id, mocked_pod):
     with pytest.raises(JobResultNotFoundError) as error:
         with (
             patch.object(
@@ -369,9 +355,7 @@ def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
 
 
 def test_get_completion_time_failed_job(k8s_job_3_failed):
-    assert get_completion_time(k8s_job_3_failed) == datetime.datetime.fromisoformat(
-        "2025-01-02T15:48:01.000000Z"
-    )
+    assert get_completion_time(k8s_job_3_failed) == datetime.datetime.fromisoformat("2025-01-02T15:48:01.000000Z")
 
 
 @pytest.fixture
@@ -383,9 +367,7 @@ def k8s_event_list(k8s_job_4_events):
                 metadata=object(),
                 message="first event",
             ),
-            CoreV1Event(
-                involved_object=object(), metadata=object(), message="last event"
-            ),
+            CoreV1Event(involved_object=object(), metadata=object(), message="last event"),
         ]
     )
 
@@ -438,10 +420,7 @@ def test_job_message_from_pod_container_stati(k8s_pod_with_container_stati, k8s_
         "list_namespaced_pod",
         return_value=V1PodList(items=[k8s_pod_with_container_stati]),
     ):
-        assert (
-            job_message("test", k8s_job_1)
-            == "test-waiting-reason: test-waiting-message"
-        )
+        assert job_message("test", k8s_job_1) == "test-waiting-reason: test-waiting-message"
 
 
 def test_add_job_returns_only(manager):
@@ -491,9 +470,7 @@ def k8s_job_without_mimetype_annotation(process_id):
         ),
         status=V1JobStatus(
             succeeded=1,
-            completion_time=datetime.datetime.fromisoformat(
-                "2025-01-19T15:52:01.000000Z"
-            ),
+            completion_time=datetime.datetime.fromisoformat("2025-01-19T15:52:01.000000Z"),
         ),
         spec=V1JobSpec(
             selector=V1LabelSelector(match_labels={"test-key-2": "test-value-2"}),
@@ -511,9 +488,7 @@ def test_job_get_default_mimetype_if_annotation_is_missing(
 
 
 def test_kubernetes_processor_sets_mimetype():
-    processor = KubernetesProcessor(
-        process_metadata={}, processor_def={"name": "test-name"}
-    )
+    processor = KubernetesProcessor(process_metadata={}, processor_def={"name": "test-name"})
 
     assert processor.mimetype == "application/json"
 
@@ -523,9 +498,7 @@ def test_manager_starts_no_thread_if_not_configured(manager):
         manager.finalizer_controller  # noqa: B018
 
     assert error.type is AttributeError
-    assert error.match(
-        "'KubernetesManager' object has no attribute 'finalizer_controller'"
-    )
+    assert error.match("'KubernetesManager' object has no attribute 'finalizer_controller'")
 
 
 def test_check_s3_log_upload_variables():
@@ -593,9 +566,7 @@ def test_kubernetes_finalizer_handle_deletion_event_removes_finalizer_if_no_logs
     test_pod.metadata.name = "test-pod"
     test_pod.metadata.finalizers = ["not-my-finalizer", finalizer_id]
 
-    with patch(
-        "pygeoapi_kubernetes_manager.manager.upload_logs_to_s3"
-    ) as mocked_upload_logs_to_s3:
+    with patch("pygeoapi_kubernetes_manager.manager.upload_logs_to_s3") as mocked_upload_logs_to_s3:
         kubernetes_finalizer_handle_deletion_event(
             k8s_core_api=k8s_core_api,
             finalizer_id=finalizer_id,
@@ -619,20 +590,14 @@ def test_get_job_name_from_pod():
 def test_get_job_name_returns_alternative_job_name():
     test_pod = V1Pod(
         metadata=V1ObjectMeta(),
-        status=V1PodStatus(
-            start_time=datetime.datetime(
-                1970, 1, 1, 12, 00, 0, tzinfo=datetime.timezone.utc
-            )
-        ),
+        status=V1PodStatus(start_time=datetime.datetime(1970, 1, 1, 12, 00, 0, tzinfo=datetime.timezone.utc)),
     )
     assert get_job_name_from(test_pod) == "pygeoapi-job-00000000-0000-0000-0000-00000000a8c0"
 
 
 @pytest.fixture
 def manager_with_finalizer():
-    return KubernetesManager(
-        {"name": "test-manager", "mode": "test", "finalizer_controller": True}
-    )
+    return KubernetesManager({"name": "test-manager", "mode": "test", "finalizer_controller": True})
 
 
 @pytest.mark.skip("Causing to much logging noise atm")
