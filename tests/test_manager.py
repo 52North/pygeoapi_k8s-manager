@@ -39,6 +39,7 @@ from pygeoapi_kubernetes_manager.manager import (
     KubernetesProcessor,
     get_completion_time,
     get_job_name_from,
+    get_log_file_path,
     job_message,
     job_from_k8s,
     check_s3_log_upload_variables,
@@ -71,6 +72,8 @@ from kubernetes.client import (
 )
 
 import datetime
+
+from botocore.exceptions import ClientError
 
 
 @pytest.fixture
@@ -581,10 +584,13 @@ def test_kubernetes_finalizer_handle_deletion_event_removes_finalizer_if_no_logs
         assert test_pod.metadata.finalizers == ["not-my-finalizer"]
 
 
-def test_get_job_name_from_pod():
-    test_job_name = "test-job-name"
-    test_pod = V1Pod(metadata=V1ObjectMeta(labels={"job-name": test_job_name}))
-    assert get_job_name_from(test_pod) == test_job_name
+@pytest.fixture()
+def pod_with_job_name() -> V1Pod:
+    return V1Pod(metadata=V1ObjectMeta(labels={"job-name": "test-job-name"}))
+
+
+def test_get_job_name_from_pod(pod_with_job_name):
+    assert get_job_name_from(pod_with_job_name) == "test-job-name"
 
 
 def test_get_job_name_returns_alternative_job_name():
@@ -593,6 +599,31 @@ def test_get_job_name_returns_alternative_job_name():
         status=V1PodStatus(start_time=datetime.datetime(1970, 1, 1, 12, 00, 0, tzinfo=datetime.timezone.utc)),
     )
     assert get_job_name_from(test_pod) == "pygeoapi-job-00000000-0000-0000-0000-00000000a8c0"
+
+
+def test_get_log_file_path(pod_with_job_name):
+    test_endpoint_url = "test-endpoint-url"
+    test_bucket_prefix = "my-bucket/prefix/"
+    os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX"] = test_bucket_prefix
+    s3 = MagicMock()
+    s3.meta.endpoint_url = test_endpoint_url
+    error_response = {
+        "Error": {
+            "Code": "404",
+        }
+    }
+    s3.head_object.side_effect = ClientError(error_response, "test-operations-name")
+    log_file_path = get_log_file_path(s3, pod_with_job_name, "test-bucket-name")
+
+    assert log_file_path == f"{test_bucket_prefix}test-job-name-logs.txt"
+
+    s3.head_object.result_value = None
+    s3.head_object.side_effect = None
+    log_file_path = get_log_file_path(s3, pod_with_job_name, "test-bucket-name")
+
+    assert log_file_path == f"{test_bucket_prefix}test-job-name-logs.duplicate.txt"
+
+    del os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX"]
 
 
 @pytest.fixture

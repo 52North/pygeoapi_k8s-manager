@@ -65,7 +65,7 @@ server:
 
 Ensure, that the bucket is not publicly available in the internet, because the logs might leak confidential information and should be consulted only by technical personnel.
 
-**Hint**: The controller will cancel the log file upload, if any of these variables is not configured and log errors. This will result in k8s resources not being deleted!
+*Hint*: The controller will cancel the log file upload, if any of these variables is not configured and log errors. This will result in k8s resources not being deleted!
 
 ## Development
 
@@ -109,7 +109,8 @@ docker build \
 
 **Run** the image locally for testing:
 
-**Hint**: Notice the whitespace before the command to prevent the secrets to be stored in the history of the shell.
+*Hint*:
+Notice the whitespace before the command to prevent the secrets to be stored in the history of the shell.
 If the used shell does NOT support this, ensure another procedure to prevent leaking of the credentials
 
 ```shell
