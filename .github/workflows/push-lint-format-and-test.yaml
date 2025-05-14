@@ -1,4 +1,4 @@
-name: "lint and test after push"
+name: "lint, format and test after push"
 concurrency:
   group: "pygeoapi-k8s-manager-push-lint-and-test"
   cancel-in-progress: true
@@ -8,7 +8,7 @@ on:
     branches: ["**"]
   pull_request:
 jobs:
-  lint-and-test:
+  lint-format-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
