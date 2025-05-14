@@ -1,6 +1,6 @@
 FROM geopython/pygeoapi:0.20.0
 
-ENV VERSION=0.1
+ENV VERSION=0.9
 
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
