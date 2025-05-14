@@ -204,7 +204,7 @@ class GenericImageProcessor(KubernetesProcessor):
         LOGGER.debug("Starting job with data %s", data)
         # TODO add input validation using data and self.metadata["inputs"]
 
-        extra_podspec = self._add_tolerations()
+        extra_podspec = {}
 
         if self.image_pull_secret:
             extra_podspec["image_pull_secrets"] = [k8s_client.V1LocalObjectReference(name=self.image_pull_secret)]
