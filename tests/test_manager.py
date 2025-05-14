@@ -37,12 +37,12 @@ from pygeoapi.process.base import JobNotFoundError, JobResultNotFoundError
 from pygeoapi_kubernetes_manager.manager import (
     KubernetesManager,
     KubernetesProcessor,
+    check_s3_log_upload_variables,
     get_completion_time,
     get_job_name_from,
     get_log_file_path,
-    job_message,
     job_from_k8s,
-    check_s3_log_upload_variables,
+    job_message,
     kubernetes_finalizer_handle_deletion_event,
 )
 
@@ -52,23 +52,23 @@ from kubernetes.client import BatchV1Api
 from kubernetes.client import CoreV1Api
 
 from kubernetes.client import (
-    V1JobList,
-    V1Job,
-    V1ObjectMeta,
-    V1JobStatus,
-    V1JobSpec,
-    V1JobCondition,
-    V1LabelSelector,
-    V1JobTemplateSpec,
-    V1PodList,
-    V1Pod,
-    V1PodStatus,
     CoreV1Event,
     CoreV1EventList,
     V1ContainerState,
-    V1ContainerStatus,
-    V1ContainerStateWaiting,
     V1ContainerStateTerminated,
+    V1ContainerStateWaiting,
+    V1ContainerStatus,
+    V1Job,
+    V1JobCondition,
+    V1JobList,
+    V1JobSpec,
+    V1JobStatus,
+    V1JobTemplateSpec,
+    V1LabelSelector,
+    V1ObjectMeta,
+    V1Pod,
+    V1PodList,
+    V1PodStatus,
 )
 
 import datetime
