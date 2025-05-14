@@ -32,7 +32,7 @@ RUN python3 -m pip install . \
 
 WORKDIR /pygeoapi
 
-ARG VERSION=0.9
+ARG VERSION=0.10
 LABEL org.opencontainers.image.version="${VERSION}"
 
 ARG GIT_COMMIT=commit-undefined

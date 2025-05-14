@@ -93,7 +93,7 @@ docker run \
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.9 \
+VERSION=0.10 \
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
