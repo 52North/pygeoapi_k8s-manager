@@ -27,9 +27,10 @@
 #
 # =================================================================
 import re
-from pygeoapi_kubernetes_manager.process import HelloWorldK8sProcessor
+
 import pytest
 
+from pygeoapi_kubernetes_manager.process import HelloWorldK8sProcessor
 from pygeoapi_kubernetes_manager.util import ProcessorClientError
 
 

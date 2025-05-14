@@ -26,12 +26,9 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+import copy
 import json
 import logging
-
-import copy
-
-from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
 
 from kubernetes import client as k8s_client
 from kubernetes.client.models import (
@@ -44,6 +41,7 @@ from kubernetes.client.models import (
     V1VolumeMount,
 )
 
+from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
 
 LOGGER = logging.getLogger(__name__)
 

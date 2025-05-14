@@ -25,4 +25,5 @@ jobs:
         name: run linter
         run: |
           ruff check
+          ruff check --select I
           ruff format --diff

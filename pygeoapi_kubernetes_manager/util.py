@@ -27,19 +27,18 @@
 #
 # =================================================================
 import datetime
-from http import HTTPStatus
 import logging
 import os
 import re
+from http import HTTPStatus
 from typing import Optional, TypedDict
 
+from kubernetes import client as k8s_client
+from pygeoapi.process.base import ProcessorExecuteError
 from pygeoapi.util import (
     DATETIME_FORMAT,
     JobStatus,
 )
-from pygeoapi.process.base import ProcessorExecuteError
-
-from kubernetes import client as k8s_client
 
 LOGGER = logging.getLogger(__name__)
 

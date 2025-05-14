@@ -79,6 +79,7 @@ jobs:
       name: run ruff
       run: |
         ruff check
+        ruff check --select I
         ruff format --diff
     -
       name: Build and push Docker image

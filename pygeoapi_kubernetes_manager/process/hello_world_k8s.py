@@ -30,16 +30,14 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
-from dataclasses import dataclass
 import json
 import logging
-
-from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
-
-from pygeoapi_kubernetes_manager.util import ProcessorClientError
+from dataclasses import dataclass
 
 from kubernetes import client as k8s_client
 
+from pygeoapi_kubernetes_manager.manager import KubernetesProcessor
+from pygeoapi_kubernetes_manager.util import ProcessorClientError
 
 LOGGER = logging.getLogger(__name__)
 

@@ -27,30 +27,29 @@
 #
 # =================================================================
 import datetime
-import time_machine
-import re
 import os
-import pytest
+import re
 from unittest.mock import (
     mock_open,
     patch,
 )
 
+import pytest
+import time_machine
+from kubernetes.client.models.v1_job_status import V1JobStatus
+from pygeoapi.util import JobStatus
+
 from pygeoapi_kubernetes_manager.util import (
     current_namespace,
     format_annotation_key,
-    parse_annotation_key,
     format_job_name,
+    hide_secret_values,
     is_k8s_job_name,
     job_id_from_job_name,
     job_status_from_k8s,
-    hide_secret_values,
     now_str,
+    parse_annotation_key,
 )
-
-from pygeoapi.util import JobStatus
-
-from kubernetes.client.models.v1_job_status import V1JobStatus
 
 
 def test_format_annotation_key():

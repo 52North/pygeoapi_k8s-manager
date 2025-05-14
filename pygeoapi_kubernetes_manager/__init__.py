@@ -26,7 +26,6 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
-from .manager import KubernetesManager
-from .manager import KubernetesProcessor
+from .manager import KubernetesManager, KubernetesProcessor
 
 __all__ = [KubernetesManager, KubernetesProcessor]

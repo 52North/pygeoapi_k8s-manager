@@ -26,32 +26,16 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+import datetime
 import logging
 import os
-import pytest
-
 from unittest.mock import MagicMock, patch
 
-from pygeoapi.process.base import JobNotFoundError, JobResultNotFoundError
-
-from pygeoapi_kubernetes_manager.manager import (
-    KubernetesManager,
-    KubernetesProcessor,
-    check_s3_log_upload_variables,
-    get_completion_time,
-    get_job_name_from,
-    get_log_file_path,
-    job_from_k8s,
-    job_message,
-    kubernetes_finalizer_handle_deletion_event,
-)
-
-from pygeoapi_kubernetes_manager.util import format_job_name, format_annotation_key
-
-from kubernetes.client import BatchV1Api
-from kubernetes.client import CoreV1Api
-
+import pytest
+from botocore.exceptions import ClientError
 from kubernetes.client import (
+    BatchV1Api,
+    CoreV1Api,
     CoreV1Event,
     CoreV1EventList,
     V1ContainerState,
@@ -71,10 +55,20 @@ from kubernetes.client import (
     V1PodStatus,
     V1Toleration,
 )
+from pygeoapi.process.base import JobNotFoundError, JobResultNotFoundError
 
-import datetime
-
-from botocore.exceptions import ClientError
+from pygeoapi_kubernetes_manager.manager import (
+    KubernetesManager,
+    KubernetesProcessor,
+    check_s3_log_upload_variables,
+    get_completion_time,
+    get_job_name_from,
+    get_log_file_path,
+    job_from_k8s,
+    job_message,
+    kubernetes_finalizer_handle_deletion_event,
+)
+from pygeoapi_kubernetes_manager.util import format_annotation_key, format_job_name
 
 
 @pytest.fixture

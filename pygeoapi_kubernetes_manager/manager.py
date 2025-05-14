@@ -26,56 +26,54 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
-from dataclasses import dataclass
-from datetime import datetime
-from http import HTTPStatus
 import json
 import logging
 import os
 import tempfile
-import uuid
-from threading import Thread
 import time
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from http import HTTPStatus
+from threading import Thread
 from typing import (
     Any,
     Optional,
     cast,
 )
 
+import boto3
+import boto3.session
+from botocore.client import BaseClient
+from botocore.exceptions import ClientError
 from filelock import (
     FileLock,
     Timeout,
 )
-
-import boto3
-import boto3.session
-from botocore.exceptions import ClientError
-from botocore.client import BaseClient
-
 from kubernetes import (
     client as k8s_client,
+)
+from kubernetes import (
     config as k8s_config,
+)
+from kubernetes import (
     watch,
 )
-
 from kubernetes.client import (
     CoreV1Api,
     V1Pod,
 )
-
-from pygeoapi.process.manager.base import (
-    BaseManager,
-    Subscriber,
-    RequestedResponse,
-)
-
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
     JobResultNotFoundError,
     ProcessorExecuteError,
 )
-
+from pygeoapi.process.manager.base import (
+    BaseManager,
+    RequestedResponse,
+    Subscriber,
+)
 from pygeoapi.util import (
     DATETIME_FORMAT,
     JobStatus,
