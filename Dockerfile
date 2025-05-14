@@ -1,11 +1,8 @@
 FROM geopython/pygeoapi:0.20.0
 
-ENV VERSION=0.9
-
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.url="https://github.com/52North/pygeoapi-k8s-manager.git" \
-      org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.vendor="52°North GmbH" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.ref.name="52north/pygeoapi-k8s-manager" \
@@ -34,6 +31,9 @@ RUN python3 -m pip install . \
  && rm -rv /root/.cache
 
 WORKDIR /pygeoapi
+
+ARG VERSION=0.9
+LABEL org.opencontainers.image.version="${VERSION}"
 
 ARG GIT_COMMIT=commit-undefined
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"

@@ -84,8 +84,6 @@ jobs:
     -
       name: Build and push Docker image
       uses: docker/build-push-action@v6
-      env:
-        VERSION: ${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
       with:
         context: "${{ env.BUILD_CONTEXT }}"
         build-args: |
@@ -93,6 +91,7 @@ jobs:
           GIT_COMMIT=${{ github.sha }}
           GIT_TAG=${{ env.TAG }}
           GIT_BRANCH=${{ env.BRANCH }}
+          VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
