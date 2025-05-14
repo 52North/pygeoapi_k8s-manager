@@ -100,7 +100,7 @@ K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
 
 
 class KubernetesProcessor(BaseProcessor):
-    @dataclass(frozen=True)
+    @dataclass()
     class JobPodSpec:
         pod_spec: k8s_client.V1PodSpec
         extra_annotations: dict[str, str]
