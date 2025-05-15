@@ -532,11 +532,7 @@ def test_kubernetes_processor_sets_mimetype():
 
 
 def test_manager_starts_no_thread_if_not_configured(manager):
-    with pytest.raises(AttributeError) as error:
-        manager.finalizer_controller  # noqa: B018
-
-    assert error.type is AttributeError
-    assert error.match("'KubernetesManager' object has no attribute 'finalizer_controller'")
+    assert manager.finalizer_controller is None
 
 
 def test_check_s3_log_upload_variables():

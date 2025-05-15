@@ -365,6 +365,8 @@ class KubernetesManager(BaseManager):
                 daemon=True,
             )
             self.finalizer_controller.start()
+        else:
+            self.finalizer_controller = None
 
     def add_job(self, job_metadata):
         # For k8s, add_job is implied by executing the job
@@ -553,50 +555,12 @@ class KubernetesManager(BaseManager):
             )
 
         self._check_auth_token(data_dict)
-
-        job_name = format_job_name(job_id=job_id)
-        job_pod_spec = p.create_job_pod_spec(
-            data=data_dict,
-            job_name=job_name,
-        )
-
-        if p.tolerations is not None and len(p.tolerations) > 0:
-            job_pod_spec = p._add_tolerations(job_pod_spec)
-
-        annotations = {
-            "identifier": job_id,
-            "process_id": p.metadata.get("id"),
-            K8S_ANNOTATION_KEY_JOB_START: now_str(),
-            K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
-            "mimetype": p.mimetype if p.mimetype else "application/json",
-            **job_pod_spec.extra_annotations,
-        }
-
-        job = k8s_client.V1Job(
-            api_version="batch/v1",
-            kind="Job",
-            metadata=k8s_client.V1ObjectMeta(
-                name=job_name,
-                annotations={format_annotation_key(k): v for k, v in annotations.items()},
-            ),
-            spec=k8s_client.V1JobSpec(
-                template=k8s_client.V1PodTemplateSpec(
-                    # metadata=k8s_client.V1ObjectMeta(labels=job_pod_spec.extra_labels),
-                    spec=job_pod_spec.pod_spec,
-                ),
-                backoff_limit=0,
-                # about 3 months (100 days)
-                # TODO MUST be configurable (by job, processor, or global)
-                ttl_seconds_after_finished=60 * 60 * 24 * 100,
-            ),
-        )
+        add_finalizer = self.finalizer_controller is not None
+        job = create_job_body(p, job_id, data_dict, add_finalizer)
 
         LOGGER.debug(f"Trying to create job in namespace '{self.namespace}': '{job}")
-
         self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
-
         LOGGER.info("Add job %s in ns %s", job.metadata.name, self.namespace)
-
         return ("application/json", {}, JobStatus.accepted)
 
     def _check_auth_token(self, data_dict: dict):
@@ -612,6 +576,48 @@ class KubernetesManager(BaseManager):
                 f"WRONG INTERNAL API TOKEN '{token}' ('{type(token)}') != '{os.getenv(key)}' ('{type(os.getenv(key))}')"
             )
             raise ProcessorExecuteError(msg)
+
+
+def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False):
+    job_name = format_job_name(job_id=job_id)
+    job_pod_spec = p.create_job_pod_spec(
+        data=data_dict,
+        job_name=job_name,
+    )
+
+    if p.tolerations is not None and len(p.tolerations) > 0:
+        job_pod_spec = p._add_tolerations(job_pod_spec)
+
+    annotations = {
+        "identifier": job_id,
+        "process_id": p.metadata.get("id"),
+        K8S_ANNOTATION_KEY_JOB_START: now_str(),
+        K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
+        "mimetype": p.mimetype if p.mimetype else "application/json",
+        **job_pod_spec.extra_annotations,
+    }
+
+    return k8s_client.V1Job(
+        api_version="batch/v1",
+        kind="Job",
+        metadata=k8s_client.V1ObjectMeta(
+            name=job_name,
+            annotations={format_annotation_key(k): v for k, v in annotations.items()},
+        ),
+        spec=k8s_client.V1JobSpec(
+            template=k8s_client.V1PodTemplateSpec(
+                # metadata=k8s_client.V1ObjectMeta(labels=job_pod_spec.extra_labels),
+                metadata=k8s_client.V1ObjectMeta(
+                    finalizers=[format_log_finalizer()] if add_finalizer is not None else None
+                ),
+                spec=job_pod_spec.pod_spec,
+            ),
+            backoff_limit=0,
+            # about 3 months (100 days)
+            # TODO MUST be configurable (by job, processor, or global)
+            ttl_seconds_after_finished=60 * 60 * 24 * 100,
+        ),
+    )
 
 
 def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
