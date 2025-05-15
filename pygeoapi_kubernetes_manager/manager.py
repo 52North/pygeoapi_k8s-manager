@@ -164,7 +164,7 @@ def upload_logs_to_s3(
 def get_log_file_path(s3: BaseClient, pod: V1Pod, bucket_name: str) -> str:
     path = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX")
     log_file_with_path = f"{path}{get_job_name_from(pod)}-logs.txt"
-    LOGGER.debug(f"Upload target: 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
+    LOGGER.debug(f"Upload target: '{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
     try:
         s3.head_object(Bucket=bucket_name, Key=log_file_with_path)
         log_file_with_path = f"{log_file_with_path[:-4]}.duplicate.txt"
@@ -189,7 +189,7 @@ def get_job_name_from(pod: V1Pod) -> str:
     return job_name
 
 
-def handle_added_event(k8s_core_api: CoreV1Api, finalizer_id: str, namespace: str, pod: V1Pod) -> None:
+def add_finalizer_to_pod_metadata(k8s_core_api: CoreV1Api, finalizer_id: str, namespace: str, pod: V1Pod) -> None:
     LOGGER.debug(f"Found pod added '{pod.metadata.name}' without matching finalizer '{finalizer_id}'.")
     if pod.metadata.finalizers is None:
         pod.metadata.finalizers = []
@@ -292,11 +292,12 @@ def kubernetes_finalizer_loop(lockfile: str, namespace: str) -> None:
                             LOGGER.debug(f"Event '{event_type}' with object pod '{pod.metadata.name}' received")
 
                             if (
-                                event_type == "ADDED"
+                                event_type in ("ADDED", "MODIFIED")
                                 and is_k8s_job_name(pod.metadata.name)
+                                and pod.metadata.deletion_timestamp is None
                                 and finalizer_id not in (pod.metadata.finalizers or [])
                             ):
-                                handle_added_event(
+                                add_finalizer_to_pod_metadata(
                                     k8s_core_api,
                                     finalizer_id,
                                     namespace,
@@ -305,6 +306,7 @@ def kubernetes_finalizer_loop(lockfile: str, namespace: str) -> None:
                             elif (
                                 event_type in ("MODIFIED", "DELETED")
                                 and pod.metadata.deletion_timestamp
+                                and is_k8s_job_name(pod.metadata.name)
                                 and finalizer_id in (pod.metadata.finalizers or [])
                             ):
                                 handle_deletion_event(
