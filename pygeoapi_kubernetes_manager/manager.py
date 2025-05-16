@@ -613,11 +613,12 @@ def create_job_body(
     if p.tolerations is not None and len(p.tolerations) > 0:
         job_pod_spec = p._add_tolerations(job_pod_spec)
 
+    now = now_str()
     annotations = {
         "identifier": job_id,
         "process_id": p.metadata.get("id"),
-        K8S_ANNOTATION_KEY_JOB_START: now_str(),
-        K8S_ANNOTATION_KEY_JOB_UPDATED: now_str(),
+        K8S_ANNOTATION_KEY_JOB_START: now,
+        K8S_ANNOTATION_KEY_JOB_UPDATED: now,
         "mimetype": p.mimetype if p.mimetype else "application/json",
         **job_pod_spec.extra_annotations,
     }
