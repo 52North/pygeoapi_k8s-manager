@@ -601,7 +601,9 @@ class KubernetesManager(BaseManager):
             raise ProcessorExecuteError(msg)
 
 
-def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False):
+def create_job_body(
+    p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False
+) -> k8s_client.V1Job:
     job_name = format_job_name(job_id=job_id)
     job_pod_spec = p.create_job_pod_spec(
         data=data_dict,
