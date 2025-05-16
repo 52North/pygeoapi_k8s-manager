@@ -72,7 +72,7 @@ from pygeoapi_kubernetes_manager.manager import (
     job_from_k8s,
     job_message,
 )
-from pygeoapi_kubernetes_manager.util import format_annotation_key, format_job_name
+from pygeoapi_kubernetes_manager.util import format_annotation_key, format_job_name, format_log_finalizer
 
 
 @pytest.fixture
@@ -736,3 +736,14 @@ def test_create_job_body_sets_tolerations(process_id, job_id, toleration):
     assert tolerations[0].value == "toleration-value"
     assert tolerations[0].operator == "Equal"
     assert tolerations[0].effect == "NoSchedule"
+
+
+@pytest.fixture()
+def testing_processor() -> KubernetesProcessorForTesting:
+    return KubernetesProcessorForTesting({"name": process_id}, {})
+
+
+def test_create_job_body_sets_finalizer(testing_processor, job_id):
+    job = create_job_body(testing_processor, job_id, {}, True)
+
+    assert job.spec.template.metadata.finalizers == [format_log_finalizer()]
