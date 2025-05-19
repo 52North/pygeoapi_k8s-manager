@@ -129,6 +129,9 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         self.command: str = processor_def["command"]
         self.image_pull_secret: str = processor_def["image_pull_secret"]
 
+    def check_auth(self):
+        return False
+
     def create_job_pod_spec(self, data: dict, job_name: str) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
 

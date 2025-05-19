@@ -93,6 +93,7 @@ class KubernetesProcessor(BaseProcessor):
         super().__init__(processor_def, process_metadata)
         self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
         self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
+        self.is_check_auth = processor_def["check_auth"] if "check_auth" in processor_def else None
 
     def _add_tolerations(self, job_spec: JobPodSpec):
         if self.tolerations:
@@ -101,6 +102,14 @@ class KubernetesProcessor(BaseProcessor):
             ]
             job_spec.pod_spec.tolerations = tolerations
         return job_spec
+
+    def check_auth(self) -> bool:
+        """
+        Returns True, if auth "token" should be verified.
+
+        Can be configured in the processor_def via key "check_auth" or by overriding this function.
+        """
+        return self.is_check_auth if self.is_check_auth is not None else True
 
     def create_job_pod_spec(
         self,
@@ -357,7 +366,9 @@ class KubernetesManager(BaseManager):
                 f"'{type(p).__name__}' is not a KubernetesProcessor as required by KubernetesManager."
             )
 
-        self._check_auth_token(data_dict)
+        if p.check_auth():
+            self._check_auth_token(data_dict)
+
         add_finalizer = self.finalizer_controller is not None
         job = create_job_body(p, job_id, data_dict, add_finalizer)
 

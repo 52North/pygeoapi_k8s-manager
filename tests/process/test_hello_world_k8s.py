@@ -90,4 +90,11 @@ def test_raise_error_on_wrong_input(processor):
         re.escape(
             "Invalid parameter: HelloWorldK8sProcessor.Parameters.__init__() missing 2 required positional arguments: 'message' and 'name'"
         )
-    )  # noqa: E501
+    )
+
+
+def test_is_not_check_auth(processor):
+    assert not processor.check_auth()
+
+    processor.is_check_auth = True
+    assert not processor.check_auth()

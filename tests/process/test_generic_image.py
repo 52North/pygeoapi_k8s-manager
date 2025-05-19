@@ -299,3 +299,13 @@ def test_inputs_are_provided_as_env(processor, data):
         job_pod_spec.pod_spec.containers[0].env[3].value
         == '{"input-str-id": "input-str-value", "input-int-id": 42, "input-boolean-id": false}'
     )
+
+
+def test_check_auth(processor):
+    assert processor.check_auth()
+
+    processor.is_check_auth = False
+    assert not processor.check_auth()
+
+    processor.is_check_auth = None
+    assert processor.check_auth()

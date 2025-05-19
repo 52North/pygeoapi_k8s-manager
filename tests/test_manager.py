@@ -629,3 +629,19 @@ def test_create_job_body_set_defaults(testing_processor, job_id):
     assert job.metadata.name == format_job_name(job_id)
     assert job.spec.backoff_limit == 0
     assert job.spec.ttl_seconds_after_finished == 60 * 60 * 24 * 100
+
+
+def test_check_auth(testing_processor, process_id):
+    assert testing_processor.check_auth()
+
+    testing_processor.is_check_auth = False
+    assert not testing_processor.check_auth()
+
+    testing_processor.is_check_auth = None
+    assert testing_processor.check_auth()
+
+    testing_processor = KubernetesProcessor({"name": process_id, "check_auth": True}, {})
+    assert testing_processor.check_auth()
+
+    testing_processor = KubernetesProcessor({"name": process_id, "check_auth": False}, {})
+    assert not testing_processor.check_auth()
