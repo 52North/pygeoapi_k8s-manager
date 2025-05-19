@@ -534,8 +534,6 @@ def test_manager_starts_no_thread_if_not_configured(manager):
     assert manager.finalizer_controller is None
 
 
-
-
 @pytest.fixture
 def manager_with_finalizer():
     return KubernetesManager({"name": "test-manager", "mode": "test", "finalizer_controller": True})
