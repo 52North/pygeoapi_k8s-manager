@@ -64,6 +64,8 @@ class KubernetesFinalizerController:
 
     def start_watching(self) -> None:
         self.thread.start()
+        # no join, the thread runs as daemon independent of
+        # the caller, e.g. app server worker process/thread
 
     def controller_loop(self) -> None:
         LOGGER.debug(f"Try to get the lock of '{self.lockfile}'.")
