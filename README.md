@@ -199,3 +199,13 @@ pip install --upgrade -r requirements-dev.txt
 - [ ] Implement injecting pod lifetime configuration, atm. 100 days too long for e.g. GPU pods
 - [ ] Are Pygeoapi Start and K8s Job/POD Start Time not the same? Should they be mapped by OGC Created and Started?
 - [ ] Why are the `jobControlOptions` from hello_world_k8s and generic_image not honoured?
+
+## Credits
+
+The development of the "pygeoapi - kubernetes manager" implementation was supported by several organizations and projects.
+Among other we would like to thank the following organizations and projects
+
+| Project/Logo | Description |
+| :-------------: | :------------- |
+| ![DIRECTED](./img/logo_directed.png) | [DIRECTED](https://52north.org/solutions/i-cisk/) aims to reduce vulnerability to extreme weather events and foster disaster-resilient European societies by promoting interoperability of data, models, communication and governance on all levels and between all actors of the disaster risk management and climate adaptation process. |
+| ![I-CISK](./img/logo_i-cisk.png) | [I-CISK](https://52north.org/solutions/i-cisk/) will empower local communities to build and use tailored local Climate Services to adapt to climate change. |
