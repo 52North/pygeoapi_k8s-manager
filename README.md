@@ -183,7 +183,7 @@ Create/Update the NOTICE file using the following command **AFTER** building the
 docker run \
   --rm \
   --entrypoint "/bin/bash" \
-  52north/pygeoapi-k8s-manager/pygeoapi-k8s-manager:latest \
+  52north/pygeoapi-k8s-manager:latest \
   -c "pip install --no-warn-script-location --no-cache-dir pip-licenses > /dev/null && /usr/local/bin/pip-licenses -f plain | grep -v pygeoapi-k8s-manager"
 ```
 
