@@ -187,7 +187,7 @@ docker run \
   -c "pip install --no-warn-script-location --no-cache-dir pip-licenses > /dev/null && /usr/local/bin/pip-licenses -f plain | grep -v pygeoapi-k8s-manager"
 ```
 
-## Credits
+## Funding
 
 The development of the "pygeoapi - kubernetes manager" implementation was supported by several organizations and projects.
 Among other we would like to thank the following organizations and projects
@@ -196,3 +196,4 @@ Among other we would like to thank the following organizations and projects
 | :-------------: | :------------- |
 | ![DIRECTED](./img/logo_directed.png) | [DIRECTED](https://52north.org/solutions/i-cisk/) aims to reduce vulnerability to extreme weather events and foster disaster-resilient European societies by promoting interoperability of data, models, communication and governance on all levels and between all actors of the disaster risk management and climate adaptation process. |
 | ![I-CISK](./img/logo_i-cisk.png) | [I-CISK](https://52north.org/solutions/i-cisk/) will empower local communities to build and use tailored local Climate Services to adapt to climate change. |
+| ![WEB-AIS](./img/log_web-ais.png) | [WEB-AIS](https://52north.org/solutions/) aims for improving water management in Bangladesh in times of climate change impacts. |
