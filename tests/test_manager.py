@@ -655,8 +655,8 @@ def test_check_auth(testing_processor, process_id):
 
 def test_add_job_id_env():
     pod_spec = V1PodSpec(
-        containers=[V1Container(name="container-0"),V1Container(name="container-1")],
-        init_containers=[V1Container(name="init-container-0"),V1Container(name="init.container-1")]
+        containers=[V1Container(name="container-0"), V1Container(name="container-1")],
+        init_containers=[V1Container(name="init-container-0"), V1Container(name="init.container-1")],
     )
 
     test_job_id = "test-job-id"
