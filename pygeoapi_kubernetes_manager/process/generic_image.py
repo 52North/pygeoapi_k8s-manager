@@ -32,6 +32,7 @@ import logging
 
 from kubernetes import client as k8s_client
 from kubernetes.client.models import (
+    V1EmptyDirVolumeSource,
     V1EnvVar,
     V1EnvVarSource,
     V1PersistentVolumeClaimVolumeSource,
@@ -177,14 +178,25 @@ class GenericImageProcessor(KubernetesProcessor):
             return None
         k8s_volumes = []
         for volume in self.storage:
-            k8s_volumes.append(
-                V1Volume(
-                    name=volume["name"],
-                    persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
-                        claim_name=volume["persistent_volume_claim_name"]
+            # support for https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
+            if "empty_dir" in volume.keys():
+                k8s_volumes.append(
+                    V1Volume(
+                        name=volume["name"],
+                        empty_dir=V1EmptyDirVolumeSource(
+                            medium=volume["empty_dir"].get("medium"), size_limit=volume["empty_dir"].get("size_limit")
+                        ),
                     ),
                 )
-            )
+            else:
+                k8s_volumes.append(
+                    V1Volume(
+                        name=volume["name"],
+                        persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
+                            claim_name=volume["persistent_volume_claim_name"]
+                        ),
+                    )
+                )
         return k8s_volumes
 
     def _add_inputs_to_env(self, data: dict, k8s_env: list[V1EnvVar] | None) -> list[V1EnvVar]:

@@ -168,6 +168,20 @@ resources:
         limits:
           memory: 256M
           cpu: 100m
+      storage:
+      # See: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+      - name: test-storage
+        mount_path: /tmp/test-storage
+        persistent_volume_claim_name: test-storage-pvc-name
+      # See https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
+      - name: test-empty-dir-storage
+        mount_path: /tmp/test-empty-dir-storage
+        empty_dir: {}
+      - name: test-empty-dir-storage-with-config
+        mount_path: /tmp/test-empty-dir-storage-with-config
+        empty_dir:
+          size_limit: 500Mi
+          medium: Memory
       tolerations:
       - key: "toleration-key"
         value: "toleration-value"

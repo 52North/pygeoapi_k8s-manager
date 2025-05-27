@@ -102,6 +102,19 @@ def processor() -> GenericImageProcessor:
                     "mount_path": "test-storage-mount-path",
                     "persistent_volume_claim_name": "test-storage-pvc-name",
                 },
+                {
+                    "name": "test-empty-dir-storage-name",
+                    "mount_path": "test-empty-dir-storage-mount-path",
+                    "empty_dir": {},
+                },
+                {
+                    "name": "test-empty-dir-storage-with-config-name",
+                    "mount_path": "test-empty-dir-storage-with-config-mount-path",
+                    "empty_dir": {
+                        "size_limit": "test-empty-dir-storage-with-config-size-limit",
+                        "medium": "test-empty-dir-storage-with-config-medium",
+                    },
+                },
             ],
             "env": [
                 # env from secrets
@@ -186,10 +199,24 @@ def test_processor_def_is_parsed(processor):
     assert res["limits"]["memory"] == "test-memory-limit"
 
     storage = processor.storage
-    assert len(storage) == 1
+    assert len(storage) == 3
     assert storage[0]["name"] == "test-storage-name"
     assert storage[0]["mount_path"] == "test-storage-mount-path"
     assert storage[0]["persistent_volume_claim_name"] == "test-storage-pvc-name"
+    assert "empty_dir" not in storage[0].keys()
+
+    assert storage[1]["name"] == "test-empty-dir-storage-name"
+    assert storage[1]["mount_path"] == "test-empty-dir-storage-mount-path"
+    assert "persistent_volume_claim_name" not in storage[1].keys()
+    assert storage[1]["empty_dir"] == {}
+
+    assert storage[2]["name"] == "test-empty-dir-storage-with-config-name"
+    assert storage[2]["mount_path"] == "test-empty-dir-storage-with-config-mount-path"
+    assert storage[2]["empty_dir"] == {
+        "size_limit": "test-empty-dir-storage-with-config-size-limit",
+        "medium": "test-empty-dir-storage-with-config-medium",
+    }
+    assert "persistent_volume_claim_name" not in storage[2].keys()
 
 
 def test_outputs_mimetype_detection(processor):
@@ -225,9 +252,21 @@ def test_create_job_pod_spec(processor, data):
     pod = spec.pod_spec
     assert pod.tolerations is None
     assert pod.image_pull_secrets[0].name == "test-image-pull-secret"
-    assert len(pod.volumes) == 1
+    assert len(pod.volumes) == 3
     assert pod.volumes[0].name == "test-storage-name"
     assert pod.volumes[0].persistent_volume_claim.claim_name == "test-storage-pvc-name"
+
+    assert pod.volumes[1].name == "test-empty-dir-storage-name"
+    assert pod.volumes[1].persistent_volume_claim is None
+    assert pod.volumes[1].empty_dir is not None
+    assert pod.volumes[1].empty_dir.medium is None
+    assert pod.volumes[1].empty_dir.size_limit is None
+
+    assert pod.volumes[2].name == "test-empty-dir-storage-with-config-name"
+    assert pod.volumes[2].persistent_volume_claim is None
+    assert pod.volumes[2].empty_dir.medium == "test-empty-dir-storage-with-config-medium"
+    assert pod.volumes[2].empty_dir.size_limit == "test-empty-dir-storage-with-config-size-limit"
+
     assert len(pod.containers) == 1
 
     container = pod.containers[0]
@@ -235,9 +274,14 @@ def test_create_job_pod_spec(processor, data):
     assert len(container.command) == 1
     assert container.command[0] == "test-command"
     assert container.name == "generic-image-processor"
-    assert len(container.volume_mounts) == 1
+
+    assert len(container.volume_mounts) == 3
     assert container.volume_mounts[0].mount_path == "test-storage-mount-path"
     assert container.volume_mounts[0].name == "test-storage-name"
+    assert container.volume_mounts[1].mount_path == "test-empty-dir-storage-mount-path"
+    assert container.volume_mounts[1].name == "test-empty-dir-storage-name"
+    assert container.volume_mounts[2].mount_path == "test-empty-dir-storage-with-config-mount-path"
+    assert container.volume_mounts[2].name == "test-empty-dir-storage-with-config-name"
 
     env = container.env
     assert len(env) == 4
