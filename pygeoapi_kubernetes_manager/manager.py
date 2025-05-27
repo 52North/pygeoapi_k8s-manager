@@ -404,6 +404,8 @@ def create_job_body(
     if p.tolerations is not None and len(p.tolerations) > 0:
         job_pod_spec = p._add_tolerations(job_pod_spec)
 
+    job_pod_spec.pod_spec = add_job_id_env(job_pod_spec.pod_spec, job_id)
+
     now = now_str()
     annotations = {
         "identifier": job_id,
@@ -436,6 +438,25 @@ def create_job_body(
             ttl_seconds_after_finished=60 * 60 * 24 * 100,
         ),
     )
+
+
+def add_job_id_env(pod_spec: k8s_client.V1PodSpec, job_id: str) -> k8s_client.V1PodSpec:
+    def add_job_id_to_container_env(container: k8s_client.V1Container, job_id: str) -> None:
+        if container.env is None:
+            container.env = []
+        container.env.append(
+            k8s_client.V1EnvVar(
+                name="PYGEOAPI_JOB_ID",
+                value=job_id,
+            )
+        )
+
+    for container in pod_spec.containers:
+        add_job_id_to_container_env(container, job_id)
+    if pod_spec.init_containers is not None:
+        for container in pod_spec.init_containers:
+            add_job_id_to_container_env(container, job_id)
+    return pod_spec
 
 
 def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:

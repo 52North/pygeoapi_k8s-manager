@@ -38,6 +38,7 @@ from kubernetes.client import (
     CoreV1Api,
     CoreV1Event,
     CoreV1EventList,
+    V1Container,
     V1ContainerState,
     V1ContainerStateTerminated,
     V1ContainerStateWaiting,
@@ -61,6 +62,7 @@ from pygeoapi.process.base import JobNotFoundError, JobResultNotFoundError
 from pygeoapi_kubernetes_manager.manager import (
     KubernetesManager,
     KubernetesProcessor,
+    add_job_id_env,
     create_job_body,
     get_completion_time,
     job_from_k8s,
@@ -352,7 +354,7 @@ def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
 
 @pytest.fixture()
 def minimal_job_spec():
-    return KubernetesProcessor.JobPodSpec(V1PodSpec(containers=[V1Pod()]), {})
+    return KubernetesProcessor.JobPodSpec(V1PodSpec(containers=[V1Container(name="test-container-name")]), {})
 
 
 @pytest.fixture()
@@ -585,7 +587,7 @@ def test_create_job_body_sets_required_annotations(job_id, mocked_processor, mim
 
 class KubernetesProcessorForTesting(KubernetesProcessor):
     def create_job_pod_spec(self, data, job_name):
-        return KubernetesProcessor.JobPodSpec(V1PodSpec(containers=[V1Pod()]), {})
+        return KubernetesProcessor.JobPodSpec(V1PodSpec(containers=[V1Container(name="test-container")]), {})
 
 
 def test_create_job_body_sets_tolerations(process_id, job_id, toleration):
@@ -630,6 +632,10 @@ def test_create_job_body_set_defaults(testing_processor, job_id):
     assert job.spec.backoff_limit == 0
     assert job.spec.ttl_seconds_after_finished == 60 * 60 * 24 * 100
 
+    assert len(job.spec.template.spec.containers[0].env) == 1
+    assert job.spec.template.spec.containers[0].env[0].name == "PYGEOAPI_JOB_ID"
+    assert job.spec.template.spec.containers[0].env[0].value == job_id
+
 
 def test_check_auth(testing_processor, process_id):
     assert testing_processor.check_auth()
@@ -645,3 +651,23 @@ def test_check_auth(testing_processor, process_id):
 
     testing_processor = KubernetesProcessor({"name": process_id, "check_auth": False}, {})
     assert not testing_processor.check_auth()
+
+
+def test_add_job_id_env():
+    pod_spec = V1PodSpec(
+        containers=[V1Container(name="container-0"),V1Container(name="container-1")],
+        init_containers=[V1Container(name="init-container-0"),V1Container(name="init.container-1")]
+    )
+
+    test_job_id = "test-job-id"
+    adjusted_pod_spec = add_job_id_env(pod_spec, test_job_id)
+
+    assert adjusted_pod_spec.containers[0].env[0].name == "PYGEOAPI_JOB_ID"
+    assert adjusted_pod_spec.containers[0].env[0].value == test_job_id
+    assert adjusted_pod_spec.containers[1].env[0].name == "PYGEOAPI_JOB_ID"
+    assert adjusted_pod_spec.containers[1].env[0].value == test_job_id
+
+    assert adjusted_pod_spec.init_containers[0].env[0].name == "PYGEOAPI_JOB_ID"
+    assert adjusted_pod_spec.init_containers[0].env[0].value == test_job_id
+    assert adjusted_pod_spec.init_containers[1].env[0].name == "PYGEOAPI_JOB_ID"
+    assert adjusted_pod_spec.init_containers[1].env[0].value == test_job_id

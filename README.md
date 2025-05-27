@@ -55,6 +55,12 @@ server:
     finalizer_controller: true
 ```
 
+**environment variables available**:
+
+| **name** | **comment** |
+|---|---|
+| `PYGEOAPI_JOB_ID` | Each container (normal and init) of the job pod will receive this variable containing the pygeoapi provided id of the current job, e.g. `99755242-31af-11f0-80bd-0255ac10006c`. |
+
 **environment variables to configure**:
 
 | **name** | **comment** |
