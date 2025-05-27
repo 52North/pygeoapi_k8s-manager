@@ -77,7 +77,7 @@ class GenericImageProcessor(KubernetesProcessor):
         super().__init__(processor_def, metadata)
 
         self.default_image: str = processor_def["default_image"]
-        self.command: str = processor_def["command"]
+        self.command: str = processor_def["command"] if "command" in processor_def.keys() else None
         self.image_pull_secret: str = (
             processor_def["image_pull_secret"] if "image_pull_secret" in processor_def.keys() else None
         )
