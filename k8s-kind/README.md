@@ -7,7 +7,7 @@ Kind documentation: <https://kind.sigs.k8s.io/>
 Create cluster:
 
 ```shell
-kind create cluster --name pygeoapi-k8s-manager
+kind create cluster --config kind-cluster.yaml
 ```
 
 Check cluster:
@@ -16,7 +16,7 @@ Check cluster:
 kubectl cluster-info --context kind-pygeoapi-k8s-manager
 ```
 
-## Prepare Docker image
+## Prepare Docker Image
 
 Build docker image as [outlined in the documentation](../README.md#container), but set `VERSION` to `local`.
 
@@ -48,21 +48,15 @@ Apply k8s manifests:
 k8s-kind/$ kubectl apply -k .
 ```
 
-Port forwarding (`<host-port>:<service-port>`):
-
-```shell
-kubectl port-forward service/k8s-job-manager 8080:80
-```
-
 ## Test application
 
-Visit pygeoapi at http://localhost:8080/pygeoapi/
+Visit pygeoapi at <http://localhost:30080/pygeoapi/>
 
 Execute the "hello world" process:
 
 ```shell
-curl -X 'POST' \
-  'http://localhost/processes/hello-world-k8s/execution' \
+curl -v -X 'POST' \
+  'http://localhost:30080/pygeoapi/processes/hello-world-k8s/execution' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -71,4 +65,12 @@ curl -X 'POST' \
     "name": "John Doe"
   }
 }'
+```
+
+## Remove cluster
+
+Execute the following command to clean-up the cluster and its configuration:
+
+```shell
+kind delete cluster --name pygeoapi-k8s-manager
 ```

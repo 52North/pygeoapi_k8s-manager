@@ -8,7 +8,7 @@ data:
       bind:
         host: 0.0.0.0
         port: 80
-      url: http://localhost:8080/pygeoapi/
+      url: http://localhost:30080/pygeoapi/
       mimetype: application/json; charset=UTF-8
       encoding: utf-8
       gzip: false

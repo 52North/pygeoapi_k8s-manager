@@ -7,4 +7,5 @@ resources:
   - configmap.yaml
   - deployment.yaml
   - permissions.yaml
+  - secret.yaml
   - service.yaml

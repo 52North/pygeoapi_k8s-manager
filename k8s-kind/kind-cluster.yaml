@@ -1,0 +1,13 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: pygeoapi-k8s-manager
+nodes:
+  - role: control-plane
+    # Check
+    #     https://github.com/kubernetes-sigs/kind/releases
+    # for available versions matching you local kubectl version
+    image: kindest/node:v1.31.9@sha256:b94a3a6c06198d17f59cca8c6f486236fa05e2fb359cbd75dabbfc348a10b211
+    extraPortMappings:
+    - containerPort: 30080
+      hostPort: 30080
+      protocol: TCP
