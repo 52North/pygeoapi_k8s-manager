@@ -69,3 +69,42 @@ spec:
       port: 9001
       targetPort: 9001
       nodePort: 30100
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-init
+spec:
+  backoffLimit: 0
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  template:
+    spec:
+      initContainers:
+      - name: wait-for-minio
+        image: busybox
+        command: ['sh', '-c', 'until nc -z minio 9000; do date; echo waiting for minio; sleep 5; done;']
+      containers:
+      - name: create-bucket-and-path
+        image: minio/mc
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: minio_admin
+        - name: MINIO_SECRET_KEY
+          value: minio_admin
+        - name: MC_HOST_minio
+          value: "http://<MINIO_ACCESS_KEY>:<MINIO_SECRET_KEY>@minio:9000"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            mc alias set myminio http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+            mc mb myminio/test-bucket
+            echo "init" | mc pipe myminio/test-bucket/k8s-manager/logs/init.txt
+        resources:
+          requests:
+            memory: "16M"
+            cpu: "25m"
+          limits:
+            memory: "16M"
+            cpu: "25m"
+      restartPolicy: Never
