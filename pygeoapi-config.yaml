@@ -97,9 +97,6 @@ resources:
     type: process
     processor:
       name: pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor
-      default_image: "busybox:latest"
-      command: 'echo "hello world from k8s"'
-      image_pull_secret: default-secret
   generic-image-processor-example:
     type: process
     processor:

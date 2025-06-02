@@ -125,9 +125,13 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         super().__init__(processor_def, PROCESS_METADATA)
 
         self.supports_outputs = True
-        self.default_image: str = processor_def["default_image"]
-        self.command: str = processor_def["command"]
-        self.image_pull_secret: str = processor_def["image_pull_secret"]
+        self.default_image: str = (
+            processor_def["default_image"] if "default_image" in processor_def.keys() else "busybox"
+        )
+        self.command: str = processor_def["command"] if "command" in processor_def.keys() else None
+        self.image_pull_secrets: str = (
+            processor_def["image_pull_secrets"] if "image_pull_secrets" in processor_def.keys() else None
+        )
 
     def check_auth(self):
         return False
@@ -141,8 +145,16 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
             raise ProcessorClientError(user_msg=f"Invalid parameter: {e}") from e
 
         extra_podspec = {}
-        if self.image_pull_secret:
-            extra_podspec["image_pull_secrets"] = [k8s_client.V1LocalObjectReference(name=self.image_pull_secret)]
+        if self.image_pull_secrets:
+            extra_podspec["image_pull_secrets"] = [k8s_client.V1LocalObjectReference(name=self.image_pull_secrets)]
+
+        msg = f"Hello '{requested.name}'!"
+        if requested.message:
+            msg = f"{msg}: '{requested.message}'"
+
+        command = f"echo -n {msg}"
+        if self.command:
+            command = f"{self.command}; {command}"
 
         image_container = k8s_client.V1Container(
             name="hello-world-k8s",
@@ -150,17 +162,14 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
             command=[
                 "/bin/sh",
                 "-c",
-                f"{self.command}; echo \"Hello '{requested.name}': '{requested.message}'.\"",
+                command,
             ],
         )
 
         return KubernetesProcessor.JobPodSpec(
             pod_spec=k8s_client.V1PodSpec(
                 restart_policy="Never",
-                # NOTE: first container is used for status check
-                containers=[image_container],  # + extra_config.containers,
-                # we need this to be able to terminate the sidecar container
-                # https://github.com/kubernetes/kubernetes/issues/25908
+                containers=[image_container],
                 share_process_namespace=True,
                 **extra_podspec,
                 enable_service_links=False,

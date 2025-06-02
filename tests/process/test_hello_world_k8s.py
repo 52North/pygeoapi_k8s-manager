@@ -41,7 +41,7 @@ def processor() -> HelloWorldK8sProcessor:
             "name": "pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor",
             "default_image": "test-image",
             "command": "test-command",
-            "image_pull_secret": "test-image-pull-secret",
+            "image_pull_secrets": "test-image-pull-secret",
         }
     )
 
