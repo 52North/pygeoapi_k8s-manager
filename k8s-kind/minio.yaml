@@ -92,8 +92,6 @@ spec:
           value: minio_admin
         - name: MINIO_SECRET_KEY
           value: minio_admin
-        - name: MC_HOST_minio
-          value: "http://<MINIO_ACCESS_KEY>:<MINIO_SECRET_KEY>@minio:9000"
         command: ["/bin/sh", "-c"]
         args:
           - |
