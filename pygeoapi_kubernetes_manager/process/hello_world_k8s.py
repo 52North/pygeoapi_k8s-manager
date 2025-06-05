@@ -156,7 +156,7 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
 
         command = f"echo -n {msg}"
         if self.command:
-            command = f"{"; ".join(str(c) for c in self.command)}; {command}"
+            command = f"{'; '.join(str(c) for c in self.command)}; {command}"
 
         image_container = k8s_client.V1Container(
             name="hello-world-k8s",

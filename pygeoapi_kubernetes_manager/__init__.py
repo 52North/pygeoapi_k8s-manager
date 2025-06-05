@@ -26,6 +26,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+from .finalizer import KubernetesFinalizerController
 from .manager import KubernetesManager, KubernetesProcessor
 
-__all__ = [KubernetesManager, KubernetesProcessor]
+__all__ = [KubernetesManager, KubernetesProcessor, KubernetesFinalizerController]

@@ -83,6 +83,12 @@ You can use a kind based k8s cluster for testing.
 [Install kind following the according instructions](https://kind.sigs.k8s.io/docs/user/quick-start/#installation).
 The project specific kind set-up is outlined in [/k8s-kind/](./k8s-kind/README.md).
 
+### Debugging with vscode
+
+The project come with vscode debug launch configuration, that works with the kind cluster configuration.
+The details can be found in the two folders in `.vscode/` and `k8s-kind/`.
+For debugging, only the minio set-up is required.
+
 ## Container
 
 **Build** the latest container image with docker using the following command:

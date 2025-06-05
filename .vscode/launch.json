@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Flask",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "${workspaceFolder}/.vscode/app.py",
+                "FLASK_DEBUG": "1",
+                "PYGEOAPI_OPENAPI": "${workspaceFolder}/.vscode/pygeoapi-openapi-example.yaml",
+                "PYGEOAPI_CONFIG": "${workspaceFolder}/.vscode/pygeoapi-config.yaml",
+                "PYGEOAPI_K8S_MANAGER_NAMESPACE": "default",
+                "PYGEOAPI_K8S_MANAGER_API_TOKEN": "do_not_use_in_production",
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT": "http://localhost:30090",
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY": "minio_admin",
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET": "minio_admin",
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME": "test-bucket",
+                "PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX": "k8s-manager/logs/",
+            },
+            "args": [
+                "run",
+                "--debugger",
+            ],
+            "jinja": true,
+            "justMyCode": true
+        },
+    ]
+}

@@ -29,6 +29,7 @@
 import logging
 import os
 import uuid
+from datetime import datetime
 from threading import Thread
 
 import boto3
@@ -36,12 +37,12 @@ import boto3.session
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 from filelock import FileLock, Timeout
-from kubernetes import (
-    client as k8s_client,
-)
 from kubernetes import watch
 from kubernetes.client import (
+    ApiException,
+    BatchV1Api,
     CoreV1Api,
+    V1Job,
     V1Pod,
 )
 
@@ -76,17 +77,18 @@ class KubernetesFinalizerController:
                 # check env config
                 self.check_s3_log_upload_variables()
 
-                k8s_core_api = k8s_client.CoreV1Api()
+                k8s_batch_api = BatchV1Api()
+                k8s_core_api = CoreV1Api()
 
                 resource_version = None
 
-                LOGGER.info(f"Start watching events for pods in namespace '{self.namespace}'.")
+                LOGGER.info(f"Start watching events for jobs in namespace '{self.namespace}'.")
                 while True:
                     # get fresh list at start and in case of resyncing
                     if resource_version is None:
                         LOGGER.debug("Requesting initial/new resource_version")
-                        pods = k8s_core_api.list_namespaced_pod(self.namespace)
-                        resource_version = pods.metadata.resource_version
+                        jobs = k8s_batch_api.list_namespaced_job(self.namespace)
+                        resource_version = jobs.metadata.resource_version
                         LOGGER.debug(f"resource_version received: '{resource_version}'.")
 
                     while True:
@@ -94,44 +96,35 @@ class KubernetesFinalizerController:
                             LOGGER.debug("Start inner watch")
                             watcher = watch.Watch()
                             for event in watcher.stream(
-                                k8s_core_api.list_namespaced_pod,
+                                k8s_batch_api.list_namespaced_job,
                                 namespace=self.namespace,
                                 resource_version=resource_version,
                             ):
-                                pod = event["object"]
+                                job = event["object"]
                                 event_type = event["type"]
-                                LOGGER.debug(f"Event '{event_type}' with object pod '{pod.metadata.name}' received")
-
-                                # TODO maybe, switch to match statement!?
+                                LOGGER.debug(f"Event '{event_type}' with object job '{job.metadata.name}' received")
                                 if (
-                                    event_type in ("ADDED", "MODIFIED")
-                                    and pod.metadata.deletion_timestamp is None
-                                    and is_k8s_job_name(pod.metadata.name)
-                                    and self.finalizer_id not in (pod.metadata.finalizers or [])
-                                ):
-                                    self.add_finalizer_to_pod_metadata(
-                                        k8s_core_api,
-                                        pod,
-                                    )
-                                elif (
                                     event_type == "MODIFIED"
-                                    and pod.metadata.deletion_timestamp
-                                    and is_k8s_job_name(pod.metadata.name)
-                                    and self.finalizer_id in (pod.metadata.finalizers or [])
+                                    and is_k8s_job_name(job.metadata.name)
+                                    and self.finalizer_id in (job.spec.template.metadata.finalizers or [])
+                                    and (
+                                        (job.status.completion_time is not None and job.status.succeeded == 1)
+                                        or job.status.failed == 1
+                                    )
                                 ):
-                                    self.handle_deletion_event(
+                                    self.handle_job_ended_event(
                                         k8s_core_api,
-                                        pod,
+                                        job,
                                     )
                                 elif event_type == "BOOKMARK":
                                     LOGGER.debug(
                                         f"Processing 'Bookmark': resource version: \
-                                            '{resource_version}' -> {pod.metadata.resource_version}'."
+                                            '{resource_version}' -> {job.metadata.resource_version}'."
                                     )
-                                    resource_version = pod.metadata.resource_version
+                                    resource_version = job.metadata.resource_version
                             LOGGER.debug("Finished inner watch")
 
-                        except k8s_client.ApiException as e:
+                        except ApiException as e:
                             LOGGER.debug("Api Exception received. Resetting resource_version and trigger resyncing.")
                             LOGGER.debug("-------------------------------------------------------------------------")
                             LOGGER.debug(f"Received: {e}")
@@ -163,29 +156,23 @@ class KubernetesFinalizerController:
             LOGGER.info("Will skip s3 upload to log files because of bad configuration")
         self.is_upload_logs_to_s3 = upload_logs_to_s3
 
-    def add_finalizer_to_pod_metadata(self, k8s_core_api: CoreV1Api, finalizer_id: str, pod: V1Pod) -> None:
-        LOGGER.debug(f"Found pod added '{pod.metadata.name}' without matching finalizer '{finalizer_id}'.")
-        if pod.metadata.finalizers is None:
-            pod.metadata.finalizers = []
-        pod.metadata.finalizers.append(finalizer_id)
-        body = {"metadata": {"finalizers": (None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers)}}
-        (updated_pod, status, _) = k8s_core_api.patch_namespaced_pod_with_http_info(
-            name=pod.metadata.name, namespace=self.namespace, body=body
-        )
-        LOGGER.debug(f"Added finalizer to pod '{updated_pod.metadata.name}' with HTTP status '{status}'")
-
-    def handle_deletion_event(
+    def handle_job_ended_event(
         self,
         k8s_core_api: CoreV1Api,
-        pod: V1Pod,
+        job: V1Job,
     ) -> None:
         LOGGER.debug(
-            f"Found pod '{pod.metadata.name}' to be deleted since '{pod.metadata.deletion_timestamp}' with matching finalizer '{self.finalizer_id}'."
+            f"{'Completed ' if job.status.completion_time else 'Failed'} Job '{job.metadata.name}' with matching finalizer '{self.finalizer_id}'"
         )
-        if self.finalizer_id not in pod.metadata.finalizers:
-            return
 
-        # 1 get logs from pod container #1
+        pods = k8s_core_api.list_namespaced_pod(
+            namespace=self.namespace, label_selector=f"job-name={job.metadata.name}"
+        )
+        LOGGER.debug(f"Found '{len(pods.items)}' pod{'s' if len(pods.items) > 1 else ''} for job '{job.metadata.name}'")
+        if len(pods.items) != 1:
+            LOGGER.error(f"Could not get pod for job '{job.metadata.name}'")
+            # FIXME what to do here? Raise error or log only!?
+        pod = pods.items[0]
         logs = k8s_core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
@@ -203,11 +190,11 @@ class KubernetesFinalizerController:
             f"Remove finalizer entry with id '{self.finalizer_id}' from pod '{pod.metadata.name}' in ns '{self.namespace}' to allow deletion: '{body}'"
         )
         # V1Pod, status_code(int), headers(HTTPHeaderDict)
-        (deleted_pod, status, _) = k8s_core_api.patch_namespaced_pod_with_http_info(
+        (patched_pod, status, _) = k8s_core_api.patch_namespaced_pod_with_http_info(
             name=pod.metadata.name, namespace=self.namespace, body=body
         )
         LOGGER.debug(
-            f"Removed finalizer from pod '{deleted_pod.metadata.name}' with HTTP status '{status}'. Finalizer: '{deleted_pod.metadata.finalizers}'"
+            f"Removed finalizer from pod '{patched_pod.metadata.name}' with HTTP status '{status}'. Finalizer: '{patched_pod.metadata.finalizers}' (None is good!)"
         )
 
     def upload_logs_to_s3(
@@ -215,7 +202,7 @@ class KubernetesFinalizerController:
         job_name: str,
         logs: str,
     ) -> None:
-        LOGGER.debug("Retrieve logs from pod")
+        LOGGER.debug("Upload logs of pod")
         #
         # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION # noqa: E501
         #
@@ -234,11 +221,11 @@ class KubernetesFinalizerController:
         # 3 upload file
         LOGGER.debug("Start writing file")
         s3.put_object(Bucket=bucket_name, Key=log_file_with_path, Body=str(logs).encode("utf-8"))
-        LOGGER.info(f"Log data saved to '{log_file_with_path}'")
+        LOGGER.info(f"Log data saved to 's3://{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}'")
 
     def get_log_file_path(self, s3: BaseClient, job_name: str, bucket_name: str) -> str:
         path = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX")
-        log_file_with_path = f"{path}{job_name}-logs.txt"
+        log_file_with_path = f"{path}{datetime.now().strftime('%Y-%m-%d')}_{job_name}-logs.txt"
         LOGGER.debug(f"Upload target: '{s3.meta.endpoint_url}/{bucket_name}/{log_file_with_path}")
         try:
             s3.head_object(Bucket=bucket_name, Key=log_file_with_path)
