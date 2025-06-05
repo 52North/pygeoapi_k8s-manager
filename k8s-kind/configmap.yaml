@@ -85,6 +85,24 @@ data:
         type: process
         processor:
           name: pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor
+      hello-world-k8s-sleep:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor
+          command:
+            - date
+            - echo start and now sleeping 10s
+            - sleep 10
+      hello-world-k8s-sleep-failing:
+        type: process
+        processor:
+          name: pygeoapi_kubernetes_manager.process.HelloWorldK8sProcessor
+          command:
+            - date
+            - echo start and now sleeping 10s
+            - sleep 10
+            - echo oh no, we are failing
+            - exit 1
       generic-image-processor-example:
         type: process
         processor:
