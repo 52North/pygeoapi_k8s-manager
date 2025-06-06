@@ -195,3 +195,40 @@ def test_upload_logs_to_s3(finalizer, pod_with_job_name, s3_mock):
 
     del os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX"]
     del os.environ["PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME"]
+
+
+def test_refresh_resource_version(finalizer):
+    jobs_list = MagicMock()
+    jobs_list.metadata.resource_version = "my-resource-version"
+    k8s_batch_api = MagicMock()
+    k8s_batch_api.list_namespaced_job.return_value = jobs_list
+
+    finalizer.refresh_resource_version(k8s_batch_api)
+    assert finalizer.resource_version == "my-resource-version"
+
+
+def test_has_job_ended(finalizer):
+    # wrong event types
+    for ignored_event_type in ["ADDED", "DELETED"]:
+        assert finalizer.has_job_ended(None, ignored_event_type) is False
+    # wrong jobs
+    wrong_job = MagicMock()
+    for ignored_job_name in ["pygeoapi", "job", "failing"]:
+        wrong_job.metadata.name = ignored_job_name
+        assert finalizer.has_job_ended(wrong_job, "MODIFIED") is False
+    # wrong finalizer
+    wrong_job.metadata.name = "pygeoapi-job-test"
+    wrong_job.spec.template.metadata.finalizers = ["wrong-finalizer-1", "wrong-finalizer-2"]
+    assert finalizer.has_job_ended(wrong_job, "MODIFIED") is False
+    # not ended
+    wrong_job.spec.template.metadata.finalizers = [format_log_finalizer()]
+    wrong_job.status.completion_time = None
+    assert finalizer.has_job_ended(wrong_job, "MODIFIED") is False
+    # ended jobs
+    ended_job = wrong_job
+    ended_job.status.completion_time = datetime.datetime.now()
+    ended_job.status.succeeded = 1
+    assert finalizer.has_job_ended(ended_job, "MODIFIED")
+    ended_job.status.completion_time = None
+    ended_job.status.failed = 1
+    assert finalizer.has_job_ended(ended_job, "MODIFIED")

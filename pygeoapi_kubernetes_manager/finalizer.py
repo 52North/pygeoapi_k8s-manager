@@ -62,6 +62,7 @@ class KubernetesFinalizerController:
             daemon=True,
         )
         self.is_upload_logs_to_s3 = False
+        self.resource_version = None
 
     def start_watching(self) -> None:
         self.thread.start()
@@ -74,70 +75,58 @@ class KubernetesFinalizerController:
         try:
             with lock.acquire(timeout=0):
                 LOGGER.debug("Got the lock.")
-                # check env config
                 self.check_s3_log_upload_variables()
-
-                k8s_batch_api = BatchV1Api()
-                k8s_core_api = CoreV1Api()
-
-                resource_version = None
 
                 LOGGER.info(f"Start watching events for jobs in namespace '{self.namespace}'.")
                 while True:
                     # get fresh list at start and in case of resyncing
-                    if resource_version is None:
-                        LOGGER.debug("Requesting initial/new resource_version")
-                        jobs = k8s_batch_api.list_namespaced_job(self.namespace)
-                        resource_version = jobs.metadata.resource_version
-                        LOGGER.debug(f"resource_version received: '{resource_version}'.")
+                    if self.resource_version is None:
+                        self.refresh_resource_version()
 
                     while True:
                         try:
-                            LOGGER.debug("Start inner watch")
+                            LOGGER.debug("Start inner loop")
                             watcher = watch.Watch()
                             for event in watcher.stream(
-                                k8s_batch_api.list_namespaced_job,
+                                BatchV1Api.list_namespaced_job,
                                 namespace=self.namespace,
-                                resource_version=resource_version,
+                                resource_version=self.resource_version,
                             ):
                                 job = event["object"]
                                 event_type = event["type"]
                                 LOGGER.debug(f"Event '{event_type}' with object job '{job.metadata.name}' received")
-                                if (
-                                    event_type == "MODIFIED"
-                                    and is_k8s_job_name(job.metadata.name)
-                                    and self.finalizer_id in (job.spec.template.metadata.finalizers or [])
-                                    and (
-                                        (job.status.completion_time is not None and job.status.succeeded == 1)
-                                        or job.status.failed == 1
-                                    )
-                                ):
-                                    self.handle_job_ended_event(
-                                        k8s_core_api,
-                                        job,
-                                    )
+                                if self.has_job_ended(job, event_type):
+                                    self.handle_job_ended_event(job)
                                 elif event_type == "BOOKMARK":
-                                    LOGGER.debug(
-                                        f"Processing 'Bookmark': resource version: \
-                                            '{resource_version}' -> {job.metadata.resource_version}'."
-                                    )
-                                    resource_version = job.metadata.resource_version
+                                    self.resource_version = job.metadata.resource_version
                             LOGGER.debug("Finished inner watch")
 
                         except ApiException as e:
-                            LOGGER.debug("Api Exception received. Resetting resource_version and trigger resyncing.")
-                            LOGGER.debug("-------------------------------------------------------------------------")
+                            LOGGER.error("Api Exception received. Resetting resource_version and trigger resyncing.")
                             LOGGER.debug(f"Received: {e}")
-                            LOGGER.debug(type(e))
-                            LOGGER.debug(dir(e))
-                            LOGGER.debug("-------------------------------------------------------------------------")
                             # FIXME raise or rethrow if 403 forbidden
-                            resource_version = None
+                            self.resource_version = None
                             break
 
         except Timeout:
             LOGGER.error("Did not get the lock, hopefully someone else will take care of the finalizer task :-(.")
         LOGGER.info("Finished finalizer thread")
+
+    def has_job_ended(self, job, event_type):
+        return (
+            event_type == "MODIFIED"
+            and is_k8s_job_name(job.metadata.name)
+            and self.finalizer_id in (job.spec.template.metadata.finalizers or [])
+            and ((job.status.completion_time is not None and job.status.succeeded == 1) or job.status.failed == 1)
+        )
+
+    def refresh_resource_version(self, k8s_batch_api: BatchV1Api | None = None):
+        LOGGER.debug("Requesting initial/new resource_version")
+        if k8s_batch_api is None:
+            k8s_batch_api = BatchV1Api()
+        jobs = k8s_batch_api.list_namespaced_job(self.namespace)
+        self.resource_version = jobs.metadata.resource_version
+        LOGGER.debug(f"resource_version received: '{self.resource_version}'.")
 
     def check_s3_log_upload_variables(self) -> None:
         upload_logs_to_s3 = True
@@ -161,12 +150,15 @@ class KubernetesFinalizerController:
 
     def handle_job_ended_event(
         self,
-        k8s_core_api: CoreV1Api,
         job: V1Job,
+        k8s_core_api: CoreV1Api | None = None,
     ) -> None:
         LOGGER.debug(
             f"{'Completed ' if job.status.completion_time else 'Failed'} Job '{job.metadata.name}' with matching finalizer '{self.finalizer_id}'"
         )
+
+        if k8s_core_api is None:
+            k8s_core_api = CoreV1Api()
 
         pods = k8s_core_api.list_namespaced_pod(
             namespace=self.namespace, label_selector=f"job-name={job.metadata.name}"
@@ -200,11 +192,7 @@ class KubernetesFinalizerController:
             f"Removed finalizer from pod '{patched_pod.metadata.name}' with HTTP status '{status}'. Finalizer: '{patched_pod.metadata.finalizers}' (None is good!)"
         )
 
-    def upload_logs_to_s3(
-        self,
-        job_name: str,
-        logs: str,
-    ) -> None:
+    def upload_logs_to_s3(self, job_name: str, logs: str, s3: BaseClient | None = None) -> None:
         LOGGER.debug("Upload logs of pod")
         #
         # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION # noqa: E501
@@ -213,12 +201,13 @@ class KubernetesFinalizerController:
         os.environ["AWS_REQUEST_CHECKSUM_CALCULATION"] = "when_required"
         os.environ["AWS_RESPONSE_CHECKSUM_VALIDATION"] = "when_required"
         # 2 Connect to s3 bucket
-        s3 = boto3.session.Session().client(
-            "s3",
-            endpoint_url=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT"),
-            aws_access_key_id=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY"),
-            aws_secret_access_key=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"),
-        )
+        if s3 is None:
+            s3 = boto3.session.Session().client(
+                "s3",
+                endpoint_url=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT"),
+                aws_access_key_id=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY"),
+                aws_secret_access_key=os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET"),
+            )
         bucket_name = os.getenv("PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME")
         log_file_with_path = self.get_log_file_path(s3, job_name, bucket_name)
         # 3 upload file

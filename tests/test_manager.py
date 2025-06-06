@@ -685,7 +685,7 @@ def test_executions_with_wrong_or_without_token_are_rejected(manager, processor)
 
 def test_not_implemented_errors(processor):
     with pytest.raises(NotImplementedError) as error:
-        processor.create_job_pod_spec({},"")
+        processor.create_job_pod_spec({}, "")
     assert error.match("MUST be implemented by subclass.")
 
     with pytest.raises(NotImplementedError) as error:
