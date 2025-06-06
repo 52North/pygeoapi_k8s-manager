@@ -361,7 +361,8 @@ class KubernetesManager(BaseManager):
         :param job_id: job identifier
         :param data_dict: `dict` of data parameters
 
-        :returns: tuple of None (i.e. initial response payload)
+        :returns: tuple of None (i.e. initial response payload),
+                  empty result dict,
                   and JobStatus.accepted (i.e. initial job status)
         """
         if not isinstance(p, KubernetesProcessor):
@@ -374,8 +375,8 @@ class KubernetesManager(BaseManager):
         job = create_job_body(p, job_id, data_dict, add_finalizer)
 
         LOGGER.debug(f"Trying to create job in namespace '{self.namespace}': '{job}")
-        self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
-        LOGGER.info(f"Add job '{job.metadata.name}' in ns {self.namespace}")
+        created_job = self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
+        LOGGER.info(f"Created job '{created_job.metadata.name}' in ns {self.namespace}")
         return ("application/json", {}, JobStatus.accepted)
 
     def _check_auth_token(self, data_dict: dict):
