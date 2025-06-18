@@ -5,7 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 license = { text = "Apache Software License 2.0"}
 authors = [
-    { name = "EHJ-52n", email = "e.h.juerrens@52north.org" }
+    { name = "EHJ-52n", email = "e.h.juerrens@52north.org" },
+    { name = "MartinPontius", email = "m.pontius@52north.org" }
 ]
 requires-python = ">=3.10"
 dependencies = [
