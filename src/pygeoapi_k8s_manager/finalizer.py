@@ -46,7 +46,7 @@ from kubernetes.client import (
     V1Pod,
 )
 
-from .util import format_log_finalizer, is_k8s_job_name
+from .util import format_log_finalizer, get_logs_for_pod, is_k8s_job_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -168,11 +168,7 @@ class KubernetesFinalizerController:
             LOGGER.error(f"Could not get pod for job '{job.metadata.name}'")
             # FIXME what to do here? Raise error or log only!?
         pod = pods.items[0]
-        logs = k8s_core_api.read_namespaced_pod_log(
-            name=pod.metadata.name,
-            namespace=pod.metadata.namespace,
-            container=pod.spec.containers[0].name,
-        )
+        logs = get_logs_for_pod(pod, k8s_core_api)
         if logs is None or len(logs) == 0:
             # TODO what todo now? skip removing finalizer? skip uploading
             LOGGER.error(f"Could not retrieve logs for pod '{pod.name}'")

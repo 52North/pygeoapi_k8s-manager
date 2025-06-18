@@ -69,6 +69,7 @@ from .util import (
     format_annotation_key,
     format_job_name,
     format_log_finalizer,
+    get_logs_for_pod,
     hide_secret_values,
     is_k8s_job_name,
     job_status_from_k8s,
@@ -290,11 +291,7 @@ class KubernetesManager(BaseManager):
                 raise JobResultNotFoundError(f"Pod not found for job '{job_id}'")
             LOGGER.debug(f"metadata.name   : '{pod.metadata.name}'")
             LOGGER.debug(f"container name  : '{pod.spec.containers[0].name}")
-            logs = k8s_client.CoreV1Api().read_namespaced_pod_log(
-                name=pod.metadata.name,
-                namespace=pod.metadata.namespace,
-                container=pod.spec.containers[0].name,
-            )
+            logs = get_logs_for_pod(pod)
             if logs is None:
                 msg = f"Could not retrieve logs for job '{job_id}'"
                 LOGGER.error(msg)

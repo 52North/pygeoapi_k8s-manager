@@ -101,9 +101,13 @@ def test_kubernetes_finalizer_handle_job_ended_event_removes_finalizer_if_no_log
     )
     test_job = MagicMock()
     test_job.metadata.name = "test-job"
+    test_container = MagicMock()
+    test_container.name = "test-container"
     test_pod = MagicMock()
     test_pod.metadata.name = "test-pod"
+    test_pod.metadata.namespace = "test-namespace"
     test_pod.metadata.finalizers = ["not-my-finalizer", format_log_finalizer()]
+    test_pod.spec.containers = [test_container]
     k8s_core_api.list_namespaced_pod.return_value = V1PodList(items=[test_pod])
     finalizer.is_upload_logs_to_s3 = False
 

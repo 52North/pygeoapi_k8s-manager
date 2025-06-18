@@ -33,7 +33,11 @@ import re
 from http import HTTPStatus
 from typing import Optional, TypedDict
 
-from kubernetes import client as k8s_client
+from kubernetes.client import (
+    CoreV1Api,
+    V1JobStatus,
+    V1Pod,
+)
 from pygeoapi.process.base import ProcessorExecuteError
 from pygeoapi.util import (
     DATETIME_FORMAT,
@@ -98,7 +102,7 @@ def job_id_from_job_name(job_name: str) -> str:
     return job_name.replace(_JOB_NAME_PREFIX, "")
 
 
-def job_status_from_k8s(status: k8s_client.V1JobStatus) -> JobStatus:
+def job_status_from_k8s(status: V1JobStatus) -> JobStatus:
     # we assume only 1 run without retries
     # these "integers" are None if they are 0, lol
     if status.succeeded is not None and status.succeeded > 0:
@@ -141,3 +145,33 @@ def now_str() -> str:
 
 class ProcessorClientError(ProcessorExecuteError):
     http_status_code = HTTPStatus.BAD_REQUEST
+
+
+def get_logs_for_pod(
+    pod: V1Pod,
+    k8s_core_api: CoreV1Api | None = None,
+) -> str:
+    if k8s_core_api is None:
+        k8s_core_api = CoreV1Api()
+    received_logs_from_at_least_one_container = False
+    logs = f"Logs of pod '{pod.metadata.name}'"
+    if pod.spec.init_containers:
+        for init_container in pod.spec.init_containers:
+            container_log = k8s_core_api.read_namespaced_pod_log(
+                name=pod.metadata.name,
+                namespace=pod.metadata.namespace,
+                container=init_container.name,
+            )
+            logs += f"\nInit Container '{init_container.name}'\n{container_log}"
+            if container_log is not None:
+                received_logs_from_at_least_one_container = True
+    for container in pod.spec.containers:
+        container_log = k8s_core_api.read_namespaced_pod_log(
+            name=pod.metadata.name,
+            namespace=pod.metadata.namespace,
+            container=container.name,
+        )
+        logs += f"\nContainer '{container.name}'\n{container_log}"
+        if container_log is not None:
+            received_logs_from_at_least_one_container = True
+    return logs if received_logs_from_at_least_one_container else None

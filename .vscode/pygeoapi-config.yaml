@@ -187,9 +187,9 @@ resources:
           cpu: 100m
       storage:
       # See: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
-      - name: test-storage
-        mount_path: /tmp/test-storage
-        persistent_volume_claim_name: test-storage-pvc-name
+      #- name: test-storage
+      #  mount_path: /tmp/test-storage
+      #  persistent_volume_claim_name: test-storage-pvc-name
       # See https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
       - name: test-empty-dir-storage
         mount_path: /tmp/test-empty-dir-storage
@@ -204,3 +204,18 @@ resources:
         value: "toleration-value"
         operator: "Equal"
         effect: "NoSchedule"
+      init_containers:
+      - name: init-1
+        image: bash:latest
+        command:
+        - bash
+        args:
+          - -c
+          - "date; sleep 1; date"
+        resources:
+          requests:
+            memory: 64M
+            cpu: 200m
+          limits:
+            memory: 64M
+            cpu: 200m

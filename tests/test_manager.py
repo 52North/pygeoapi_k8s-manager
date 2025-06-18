@@ -308,10 +308,12 @@ def test_manager_get_job_result_raises_error_on_absent_pod(manager, process_id):
 
 @pytest.fixture
 def mocked_pod():
+    container = MagicMock()
+    container.name = "container-1"
     pod = MagicMock()
     pod.metadata.name = "test-pod"
     pod.metadata.namespace = "test-namespace"
-    pod.spec.containers = [MagicMock(name="container-1")]
+    pod.spec.containers = [container]
     return pod
 
 
@@ -335,7 +337,7 @@ def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id,
 
 
 def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
-    logs_expected = "test log string"
+    logs_string = "test log string"
     with (
         patch.object(
             KubernetesManager,
@@ -346,11 +348,14 @@ def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
             "pygeoapi_k8s_manager.manager.pod_for_job_id",
             return_value=mocked_pod,
         ),
-        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_expected),
+        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_string),
     ):
         mimetype, logs_received = manager.get_job_result(process_id)
     assert mimetype is None
-    assert logs_received == logs_expected
+    assert (
+        logs_received
+        == f"Logs of pod '{mocked_pod.metadata.name}'\nContainer '{mocked_pod.spec.containers[0].name}'\n{logs_string}"
+    )
 
 
 @pytest.fixture()
