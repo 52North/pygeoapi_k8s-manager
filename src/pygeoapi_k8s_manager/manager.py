@@ -41,11 +41,25 @@ from typing import (
 )
 
 from kubernetes import (
-    client as k8s_client,
-)
-from kubernetes import (
     config as k8s_config,
 )
+from kubernetes.client import (
+    BatchV1Api,
+    CoreV1Api,
+    CoreV1EventList,
+    V1Container,
+    V1ContainerState,
+    V1EnvVar,
+    V1Job,
+    V1JobSpec,
+    V1ObjectMeta,
+    V1Pod,
+    V1PodList,
+    V1PodSpec,
+    V1PodTemplateSpec,
+    V1Toleration,
+)
+from kubernetes.client.rest import ApiException
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
@@ -69,7 +83,6 @@ from .util import (
     format_annotation_key,
     format_job_name,
     format_log_finalizer,
-    get_logs_for_pod,
     hide_secret_values,
     is_k8s_job_name,
     job_status_from_k8s,
@@ -87,7 +100,7 @@ K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
 class KubernetesProcessor(BaseProcessor):
     @dataclass()
     class JobPodSpec:
-        pod_spec: k8s_client.V1PodSpec
+        pod_spec: V1PodSpec
         extra_annotations: dict[str, str]
 
     def __init__(self, processor_def, process_metadata):
@@ -98,9 +111,7 @@ class KubernetesProcessor(BaseProcessor):
 
     def _add_tolerations(self, job_spec: JobPodSpec):
         if self.tolerations:
-            tolerations: list[k8s_client.V1Toleration] = [
-                k8s_client.V1Toleration(**toleration) for toleration in self.tolerations
-            ]
+            tolerations: list[V1Toleration] = [V1Toleration(**toleration) for toleration in self.tolerations]
             job_spec.pod_spec.tolerations = tolerations
         return job_spec
 
@@ -160,8 +171,8 @@ class KubernetesManager(BaseManager):
                 k8s_config.load_incluster_config()
 
             self.namespace = current_namespace()
-            self.batch_v1 = k8s_client.BatchV1Api()
-            self.core_api = k8s_client.CoreV1Api()
+            self.batch_v1 = BatchV1Api()
+            self.core_api = CoreV1Api()
         # set logging for dependencies
         if manager_def.get("logging"):
             for lib, level in manager_def.get("logging").items():
@@ -187,6 +198,7 @@ class KubernetesManager(BaseManager):
 
     def update_job(self, processid, job_id, update_dict):
         # we could update the metadata by changing the job annotations
+        # TODO What are the use cases in k8s for this?
         # TODO What are the use cases in pygeoapi for this?
         # TODO What are the use cases in the OGC spec?
         raise NotImplementedError("Currently there's no use case for updating k8s jobs")
@@ -213,7 +225,7 @@ class KubernetesManager(BaseManager):
         k8s_jobs = sorted(
             (
                 k8s_job
-                for k8s_job in k8s_client.BatchV1Api()
+                for k8s_job in BatchV1Api()
                 .list_namespaced_job(
                     namespace=self.namespace,
                 )
@@ -249,14 +261,20 @@ class KubernetesManager(BaseManager):
 
         :returns: `dict`  # `pygeoapi.process.manager.Job`
         """
+        k8s_job = self.get_k8s_job(job_id)
+        return job_from_k8s(k8s_job, job_message(self.namespace, k8s_job))
 
+    def get_k8s_job(self, job_id: str) -> V1Job:
         try:
-            k8s_job: k8s_client.V1Job = self.batch_v1.read_namespaced_job(
+            k8s_job = self.batch_v1.read_namespaced_job(
                 name=format_job_name(job_id=job_id),
                 namespace=self.namespace,
             )
-            return job_from_k8s(k8s_job, job_message(self.namespace, k8s_job))
-        except k8s_client.rest.ApiException as e:
+            if k8s_job is None:
+                raise JobNotFoundError(f"Job with id '{job_id}' not found.")
+            else:
+                return k8s_job
+        except ApiException as e:
             if e.status == HTTPStatus.NOT_FOUND:
                 raise JobNotFoundError(f"Job with id '{job_id}' not found.") from e
             else:
@@ -272,7 +290,8 @@ class KubernetesManager(BaseManager):
 
         :raises: JobResultNotFoundError if job is not successful
         """
-        job = self.get_job(job_id=job_id)
+        k8s_job = self.get_k8s_job(job_id)
+        job = job_from_k8s(k8s_job, job_message(self.namespace, k8s_job))
 
         if job is None:
             # should not happen and be handled already in self.get_job()
@@ -282,22 +301,15 @@ class KubernetesManager(BaseManager):
                 f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found."
             )
         else:
-            # ATM: get pod and pod logs and return them json encoded
-            pod: k8s_client.V1Pod = pod_for_job_id(self.namespace, job["identifier"])
-            # FIXME implement downloading "results" from s3 bucket
-            if pod is None:
-                msg = f"Pod not found for job '{job_id}'"
-                LOGGER.error(msg)
-                raise JobResultNotFoundError(f"Pod not found for job '{job_id}'")
-            LOGGER.debug(f"metadata.name   : '{pod.metadata.name}'")
-            LOGGER.debug(f"container name  : '{pod.spec.containers[0].name}")
-            logs = get_logs_for_pod(pod)
-            if logs is None:
-                msg = f"Could not retrieve logs for job '{job_id}'"
-                LOGGER.error(msg)
-                raise JobResultNotFoundError(msg)
-            LOGGER.debug(f"logs            : '{logs}'")
-            return (None, logs)
+            mimetype = k8s_job.metadata.annotations[format_annotation_key("result-mimetype")]
+            value = k8s_job.metadata.annotations[format_annotation_key("result-value")]
+            LOGGER.debug(f"result-mimetype: '{mimetype}'")
+            LOGGER.debug(f"result-value: '{value}")
+            if mimetype is None or value is None:
+                raise JobResultNotFoundError(
+                    f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found."
+                )
+            return (mimetype, json.loads(value) if mimetype == "application/json" else value)
 
     def _execute_handler_sync(
         self,
@@ -393,9 +405,7 @@ class KubernetesManager(BaseManager):
             raise ProcessorExecuteError(msg)
 
 
-def create_job_body(
-    p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False
-) -> k8s_client.V1Job:
+def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False) -> V1Job:
     job_name = format_job_name(job_id=job_id)
     job_pod_spec = p.create_job_pod_spec(
         data=data_dict,
@@ -417,19 +427,17 @@ def create_job_body(
         **job_pod_spec.extra_annotations,
     }
 
-    return k8s_client.V1Job(
+    return V1Job(
         api_version="batch/v1",
         kind="Job",
-        metadata=k8s_client.V1ObjectMeta(
+        metadata=V1ObjectMeta(
             name=job_name,
             annotations={format_annotation_key(k): v for k, v in annotations.items()},
         ),
-        spec=k8s_client.V1JobSpec(
-            template=k8s_client.V1PodTemplateSpec(
-                # metadata=k8s_client.V1ObjectMeta(labels=job_pod_spec.extra_labels),
-                metadata=k8s_client.V1ObjectMeta(
-                    finalizers=[format_log_finalizer()] if add_finalizer is not None else None
-                ),
+        spec=V1JobSpec(
+            template=V1PodTemplateSpec(
+                # metadata=V1ObjectMeta(labels=job_pod_spec.extra_labels),
+                metadata=V1ObjectMeta(finalizers=[format_log_finalizer()] if add_finalizer is not None else None),
                 spec=job_pod_spec.pod_spec,
             ),
             backoff_limit=0,
@@ -441,12 +449,12 @@ def create_job_body(
     )
 
 
-def add_job_id_env(pod_spec: k8s_client.V1PodSpec, job_id: str) -> k8s_client.V1PodSpec:
-    def add_job_id_to_container_env(container: k8s_client.V1Container, job_id: str) -> None:
+def add_job_id_env(pod_spec: V1PodSpec, job_id: str) -> V1PodSpec:
+    def add_job_id_to_container_env(container: V1Container, job_id: str) -> None:
         if container.env is None:
             container.env = []
         container.env.append(
-            k8s_client.V1EnvVar(
+            V1EnvVar(
                 name="PYGEOAPI_JOB_ID",
                 value=job_id,
             )
@@ -460,11 +468,11 @@ def add_job_id_env(pod_spec: k8s_client.V1PodSpec, job_id: str) -> k8s_client.V1
     return pod_spec
 
 
-def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
+def job_message(namespace: str, job: V1Job) -> Optional[str]:
     if job_status_from_k8s(job.status) == JobStatus.accepted:
         # if a job is in state accepted, it means that it can run right now
         # and the events can show why that is
-        events: k8s_client.V1EventList = k8s_client.CoreV1Api().list_namespaced_event(
+        events: CoreV1EventList = CoreV1Api().list_namespaced_event(
             namespace=namespace,
             field_selector=(f"involvedObject.name={job.metadata.name},involvedObject.kind=Job"),
         )
@@ -476,7 +484,7 @@ def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
         if pod.status.container_statuses:
             # we check only the state of the first container, because
             # our job pods only have one container at the moment
-            state: k8s_client.V1ContainerState = pod.status.container_statuses[0].state
+            state: V1ContainerState = pod.status.container_statuses[0].state
             interesting_states = [s for s in (state.waiting, state.terminated) if s]
             if interesting_states:
                 return ": ".join(
@@ -491,25 +499,21 @@ def job_message(namespace: str, job: k8s_client.V1Job) -> Optional[str]:
     return None
 
 
-def pod_for_job_id(namespace: str, job_id: str) -> Optional[k8s_client.V1Pod]:
+def pod_for_job_id(namespace: str, job_id: str) -> Optional[V1Pod]:
     label_selector = f"job-name={format_job_name(job_id)}"
     LOGGER.debug(f"label_selector: '{label_selector}'")
-    pods: k8s_client.V1PodList = k8s_client.CoreV1Api().list_namespaced_pod(
-        namespace=namespace, label_selector=label_selector
-    )
+    pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     return next(iter(pods.items), None)
 
 
-def pod_for_job(namespace: str, job: k8s_client.V1Job) -> Optional[k8s_client.V1Pod]:
+def pod_for_job(namespace: str, job: V1Job) -> Optional[V1Pod]:
     label_selector = ",".join(f"{key}={value}" for key, value in job.spec.selector.match_labels.items())
-    pods: k8s_client.V1PodList = k8s_client.CoreV1Api().list_namespaced_pod(
-        namespace=namespace, label_selector=label_selector
-    )
+    pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
 
     return next(iter(pods.items), None)
 
 
-def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
+def job_from_k8s(job: V1Job, message: Optional[str]) -> JobDict:
     """
     Converts k8s::job to pygeoapi::job
     """
@@ -564,7 +568,7 @@ def job_from_k8s(job: k8s_client.V1Job, message: Optional[str]) -> JobDict:
     )
 
 
-def get_start_time_from_job(job: k8s_client.V1Job) -> str:
+def get_start_time_from_job(job: V1Job) -> str:
     key = format_annotation_key(K8S_ANNOTATION_KEY_JOB_START)
     # if not available via annotations, use k8s object creation time
     start_time = (
@@ -576,7 +580,7 @@ def get_start_time_from_job(job: k8s_client.V1Job) -> str:
     return start_time
 
 
-def get_completion_time(job: k8s_client.V1Job) -> Optional[datetime]:
+def get_completion_time(job: V1Job) -> Optional[datetime]:
     if job_status_from_k8s(job.status) == JobStatus.failed:
         # failed jobs have special completion time field
         return max(

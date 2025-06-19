@@ -46,7 +46,7 @@ from kubernetes.client import (
     V1Pod,
 )
 
-from .util import format_log_finalizer, get_logs_for_pod, is_k8s_job_name
+from .util import format_annotation_key, format_log_finalizer, get_logs_for_pod, is_k8s_job_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,13 +156,12 @@ class KubernetesFinalizerController:
         LOGGER.debug(
             f"{'Completed ' if job.status.completion_time else 'Failed'} Job '{job.metadata.name}' with matching finalizer '{self.finalizer_id}'"
         )
-
         if k8s_core_api is None:
             k8s_core_api = CoreV1Api()
-
         pods = k8s_core_api.list_namespaced_pod(
             namespace=self.namespace, label_selector=f"job-name={job.metadata.name}"
         )
+        # TODO: maybe, we need to check, if the pod still has the finalizer
         LOGGER.debug(f"Found '{len(pods.items)}' pod{'s' if len(pods.items) > 1 else ''} for job '{job.metadata.name}'")
         if len(pods.items) != 1:
             LOGGER.error(f"Could not get pod for job '{job.metadata.name}'")
@@ -174,6 +173,13 @@ class KubernetesFinalizerController:
             LOGGER.error(f"Could not retrieve logs for pod '{pod.name}'")
         elif self.is_upload_logs_to_s3:
             self.upload_logs_to_s3(self.get_job_name_from(pod), logs)
+            # TODO: document results
+            self.add_result_annotations_to_job(job, logs, k8s_core_api)
+        self.remove_finalizer(pod, k8s_core_api)
+
+    def remove_finalizer(self, pod: V1Pod, k8s_core_api: CoreV1Api | None = None) -> None:
+        if k8s_core_api is None:
+            k8s_core_api = CoreV1Api()
         # 4 Remove finalizer entry to allow pod termination
         pod.metadata.finalizers.remove(self.finalizer_id)
         body = {"metadata": {"finalizers": (None if len(pod.metadata.finalizers) == 0 else pod.metadata.finalizers)}}
@@ -187,6 +193,38 @@ class KubernetesFinalizerController:
         LOGGER.debug(
             f"Removed finalizer from pod '{patched_pod.metadata.name}' with HTTP status '{status}'. Finalizer: '{patched_pod.metadata.finalizers}' (None is good!)"
         )
+
+    def add_result_annotations_to_job(self, job: V1Job, logs: str, k8s_core_api: CoreV1Api | None = None) -> None:
+        if k8s_core_api is None:
+            k8s_core_api = CoreV1Api()
+        annotations = job.metadata.annotations if job.metadata.annotations else []
+        annotations.update(
+            {
+                format_annotation_key("result-mimetype"): next(
+                    (
+                        line.split(":", 1)[1].strip()
+                        for line in logs.split("\n")
+                        if line.startswith("PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE")
+                    ),
+                    None,
+                )
+            }
+        )
+        lines = logs.splitlines()
+        annotations.update(
+            {
+                format_annotation_key("result-value"): "".join(
+                    lines[lines.index("PYGEOAPI_K8S_MANAGER_RESULT_START") + 1 :]
+                    if "PYGEOAPI_K8S_MANAGER_RESULT_START" in lines
+                    else []
+                )
+            }
+        )
+        body = {"metadata": {"annotations": annotations}}
+        (patched_pod, status, _) = BatchV1Api().patch_namespaced_job_with_http_info(
+            name=job.metadata.name, namespace=self.namespace, body=body
+        )
+        LOGGER.debug(f"Added result annotations to job '{patched_pod.metadata.name}': Status: '{status}'")
 
     def upload_logs_to_s3(self, job_name: str, logs: str, s3: BaseClient | None = None) -> None:
         LOGGER.debug("Upload logs of pod")

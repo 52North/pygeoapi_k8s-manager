@@ -163,7 +163,15 @@ resources:
       command:
         - bash
         - -c
-        - "date; env | sort"
+        - |
+          date
+          env | sort
+          echo PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:application/json
+          echo PYGEOAPI_K8S_MANAGER_RESULT_START
+          echo {
+          echo '  "id":"generic-image-processor-example",'
+          echo '  "result":"result-value"'
+          echo }
       env:
         # env from secrets (requires existing secrets in k8s cluster!)
         # - name: EXAMPLE_ENV_FROM_SECRET

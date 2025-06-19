@@ -272,7 +272,9 @@ def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id)
 
 def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process_id):
     with pytest.raises(JobNotFoundError) as error:
-        with patch.object(KubernetesManager, "get_job", return_value=None):
+        with patch.object(
+            KubernetesManager, "get_k8s_job", side_effect=JobNotFoundError(f"No job with id '{process_id}' found!")
+        ):
             manager.get_job_result(process_id)
     assert error.type is JobNotFoundError
     assert error.match(f"No job with id '{process_id}' found!")
@@ -280,30 +282,22 @@ def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process
 
 def test_manager_get_job_result_raises_error_on_failed_job(manager, process_id):
     state = "failed"
-    with pytest.raises(JobResultNotFoundError) as error:
-        with patch.object(
+    with (
+        pytest.raises(JobResultNotFoundError) as error,
+        patch.object(
             KubernetesManager,
-            "get_job",
+            "get_k8s_job",
+            return_value=None,
+        ),
+        patch(
+            "pygeoapi_k8s_manager.manager.job_from_k8s",
             return_value={"identifier": process_id, "status": state},
-        ):
-            manager.get_job_result(process_id)
+        ),
+        patch("pygeoapi_k8s_manager.manager.job_message", return_value=None),
+    ):
+        manager.get_job_result(process_id)
     assert error.type is JobResultNotFoundError
     assert error.match(f"No results for job '{process_id}' with state '{state}' found.")
-
-
-def test_manager_get_job_result_raises_error_on_absent_pod(manager, process_id):
-    with pytest.raises(JobResultNotFoundError) as error:
-        with (
-            patch.object(
-                KubernetesManager,
-                "get_job",
-                return_value={"identifier": process_id, "status": "successful"},
-            ),
-            patch("pygeoapi_k8s_manager.manager.pod_for_job_id", return_value=None),
-        ):
-            manager.get_job_result(process_id)
-    assert error.type is JobResultNotFoundError
-    assert error.match(f"Pod not found for job '{process_id}'")
 
 
 @pytest.fixture
@@ -317,45 +311,30 @@ def mocked_pod():
     return pod
 
 
-def test_manager_get_job_result_raises_error_on_absent_logs(manager, process_id, mocked_pod):
-    with pytest.raises(JobResultNotFoundError) as error:
-        with (
-            patch.object(
-                KubernetesManager,
-                "get_job",
-                return_value={"identifier": process_id, "status": "successful"},
-            ),
-            patch(
-                "pygeoapi_k8s_manager.manager.pod_for_job_id",
-                return_value=mocked_pod,
-            ),
-            patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=None),
-        ):
-            manager.get_job_result(process_id)
-    assert error.type is JobResultNotFoundError
-    assert error.match(f"Could not retrieve logs for job '{process_id}'")
-
-
-def test_manager_get_job_result_logs(manager, process_id, mocked_pod):
-    logs_string = "test log string"
+def test_manager_get_job_result(manager, process_id, mocked_pod):
+    test_mimetype = "application/pygeoapi-testing-mimetype"
+    test_result = "my test result string"
+    job = {"status": "successful"}
+    k8s_job = MagicMock()
+    k8s_job.metadata.annotations = {
+        format_annotation_key("result-mimetype"): test_mimetype,
+        format_annotation_key("result-value"): test_result,
+    }
     with (
         patch.object(
             KubernetesManager,
-            "get_job",
-            return_value={"identifier": process_id, "status": "successful"},
+            "get_k8s_job",
+            return_value=k8s_job,
         ),
+        patch("pygeoapi_k8s_manager.manager.job_message", return_value=None),
         patch(
-            "pygeoapi_k8s_manager.manager.pod_for_job_id",
-            return_value=mocked_pod,
+            "pygeoapi_k8s_manager.manager.job_from_k8s",
+            return_value=job,
         ),
-        patch.object(CoreV1Api, "read_namespaced_pod_log", return_value=logs_string),
     ):
-        mimetype, logs_received = manager.get_job_result(process_id)
-    assert mimetype is None
-    assert (
-        logs_received
-        == f"Logs of pod '{mocked_pod.metadata.name}'\nContainer '{mocked_pod.spec.containers[0].name}'\n{logs_string}"
-    )
+        mimetype, result = manager.get_job_result(process_id)
+    assert mimetype == test_mimetype
+    assert result == test_result
 
 
 @pytest.fixture()
