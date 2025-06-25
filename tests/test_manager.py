@@ -560,10 +560,8 @@ class KubernetesProcessorForTesting(KubernetesProcessor):
 
 @pytest.fixture()
 def testing_processor(process_id, toleration) -> KubernetesProcessorForTesting:
-    return KubernetesProcessorForTesting({
-            "name": "test-processor-name",
-            "tolerations": [toleration]
-        },
+    return KubernetesProcessorForTesting(
+        {"name": "test-processor-name", "tolerations": [toleration]},
         {
             "id": process_id,
         },

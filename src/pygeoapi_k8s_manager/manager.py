@@ -459,7 +459,8 @@ def add_metadata_env(pod_spec: V1PodSpec, job_id: str, process_id: str) -> V1Pod
                 value=job_id,
             ),
         )
-        container.env.append(V1EnvVar(
+        container.env.append(
+            V1EnvVar(
                 name="PYGEOAPI_PROCESS_ID",
                 value=process_id,
             ),
