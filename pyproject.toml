@@ -1,6 +1,6 @@
 [project]
 name = "pygeoapi-k8s-manager"
-version = "0.20"
+version = "0.21"
 description = "Job manager for pygeoapi using k8s api server"
 readme = "README.md"
 license = { text = "Apache Software License 2.0"}
