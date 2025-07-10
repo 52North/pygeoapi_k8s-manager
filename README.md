@@ -189,7 +189,7 @@ docker run -ti --rm \
 **Upload to registry** after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):
 
 ```shell
-docker push --all-tags 52north//pygeoapi-k8s-manager
+docker push --all-tags 52north/pygeoapi-k8s-manager
 ```
 
 or
