@@ -119,30 +119,30 @@ jobs:
         scanners: vuln,secret,misconfig
         severity: CRITICAL,HIGH
     -
-     name: remove empty results
-     run: |
-       vulnerabilities=$(cat trivy-results.json | jq 'if (.Results | length) == 0 then 0 else [.Results[].Vulnerabilities | length] | add end'); \
-       if [[ "$vulnerabilities" -eq 0 ]]; then \
-        rm trivy-results.json
-       fi
+      name: remove empty results
+      run: |
+        vulnerabilities=$(cat trivy-results.json | jq 'if (.Results | length) == 0 then 0 else [.Results[].Vulnerabilities | length] | add end'); \
+        if [[ "$vulnerabilities" -eq 0 ]]; then \
+          rm trivy-results.json
+        fi
     -
-     if: ${{ hashFiles('trivy-results.json') != '' }}
-     name: 2nd scan to create human readable report
-     uses: aquasecurity/trivy-action@master
-     env:
-       TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
-       TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
-       TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
-       TRIVY_FORMAT: table
-       TRIVY_OUTPUT: trivy-results.txt
-     with:
-       image-ref: "${{ env.IMAGE_TAG }}"
-       format: 'table'
-       output: 'trivy-results.txt'
-       exit-code: '0'
-       ignore-unfixed: true
-       vuln-type: 'os,library'
-       severity: 'CRITICAL,HIGH'
+      if: ${{ hashFiles('trivy-results.json') != '' }}
+      name: 2nd scan to create human readable report
+      uses: aquasecurity/trivy-action@master
+      env:
+        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+        TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
+        TRIVY_FORMAT: table
+        TRIVY_OUTPUT: trivy-results.txt
+      with:
+        image-ref: "${{ env.IMAGE_TAG }}"
+        format: 'table'
+        output: 'trivy-results.txt'
+        exit-code: '0'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
     -
       if: ${{ hashFiles('trivy-results.txt') != '' }}
       name: Upload to 52N slack
