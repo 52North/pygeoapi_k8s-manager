@@ -15,10 +15,10 @@ on:
   workflow_dispatch:
     inputs:
       tags:
-        description: "Please provide a git tag value, e.g. v1.0-manually-triggered.1"
+        description: "Please provide a git tag value, e.g. v1.0.1"
         required: true
         type: string
-        default: "v1.0-manually-triggered.1"
+        default: "v1.0.1"
   push:
     tags: ["v*"]
 
