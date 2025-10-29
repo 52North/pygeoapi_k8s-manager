@@ -1,4 +1,5 @@
 name: 'Close stale issues and PRs'
+# documentation: https://github.com/marketplace/actions/close-stale-issues
 on:
   schedule:
     # https://crontab.cronhub.io/
@@ -9,7 +10,7 @@ jobs:
     steps:
       - uses: actions/stale@v10
         with:
-          stale-issue-message: 'This issue is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 7 days.'
-          days-before-stale: 30
-          days-before-close: 7
+          stale-issue-message: 'Notice of Inactivity: This issue has been open for 8 weeks with no activity. To prevent it from being automatically closed in 2 weeks, please add a comment or remove the "stale" label.'
+          days-before-stale: 56
+          days-before-close: 14
           exempt-all-pr-assignees: true
