@@ -165,19 +165,18 @@ class KubernetesFinalizerController:
             namespace=self.namespace, label_selector=f"job-name={job.metadata.name}"
         )
         LOGGER.debug(f"Found '{len(pods.items)}' pod{'s' if len(pods.items) > 1 else ''} for job '{job.metadata.name}'")
-        if len(pods.items) != 1:
-            # FIXME what to do here? Raise error or log only!?
+        if len(pods.items) < 1:
             LOGGER.error(f"Could not get pod for job '{job.metadata.name}'")
+            return
         pod = pods.items[0]
         if pod.metadata.finalizers is None or self.finalizer_id not in pod.metadata.finalizers:
             LOGGER.debug("pod already processed -> skipping")
             return
         logs = get_logs_for_pod(pod, k8s_core_api)
         if logs is None or len(logs) == 0:
-            # TODO what todo now? skip removing finalizer? skip uploading
             LOGGER.error(f"Could not retrieve logs for pod '{pod.name}'")
         else:
-            # TODO: document results
+            # document results
             self.add_result_annotations_to_job(job, logs, k8s_batch_api)
             if self.is_upload_logs_to_s3:
                 self.upload_logs_to_s3(self.get_job_name_from(pod), logs)

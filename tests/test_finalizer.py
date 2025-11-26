@@ -275,3 +275,23 @@ def test_add_result_annotations_to_job(finalizer):
             }
         },
     )
+
+
+def test_handle_job_ended_event_does_not_fail_if_no_pod_found_for_job(finalizer):
+    finalizer.is_upload_logs_to_s3 = False
+    k8s_core_api = MagicMock()
+    k8s_core_api.list_namespaced_pod.return_value = V1PodList(items=[])
+
+    with (
+        patch(
+            "pygeoapi_k8s_manager.finalizer.KubernetesFinalizerController.upload_logs_to_s3"
+        ) as mocked_upload_logs_to_s3,
+        patch("pygeoapi_k8s_manager.util.get_logs_for_pod") as mocked_get_logs_for_pod,
+    ):
+        finalizer.handle_job_ended_event(
+            k8s_core_api=k8s_core_api,
+            job=MagicMock(),
+        )
+
+    mocked_get_logs_for_pod.assert_not_called()
+    mocked_upload_logs_to_s3.assert_not_called()
