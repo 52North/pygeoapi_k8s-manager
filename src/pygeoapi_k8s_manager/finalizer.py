@@ -166,6 +166,9 @@ class KubernetesFinalizerController:
         )
         LOGGER.debug(f"Found '{len(pods.items)}' pod{'s' if len(pods.items) > 1 else ''} for job '{job.metadata.name}'")
         if len(pods.items) < 1:
+            if job.metadata.deletion_timestamp:
+                LOGGER.debug(f"Job '{job.metadata.name}' is being deleted. No pods found.")
+                return
             LOGGER.error(f"Could not get pod for job '{job.metadata.name}'")
             return
         pod = pods.items[0]
