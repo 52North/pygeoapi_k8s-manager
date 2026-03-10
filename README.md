@@ -131,7 +131,7 @@ For debugging, only the minio set-up is required.
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.17 \
+VERSION=0.23 \
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
