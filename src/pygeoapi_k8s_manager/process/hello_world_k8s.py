@@ -32,6 +32,7 @@
 # =================================================================
 import json
 import logging
+import shlex
 from dataclasses import dataclass
 
 from kubernetes import client as k8s_client
@@ -154,7 +155,9 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         else:
             msg += "!"
 
-        command = f"echo -n {msg}"
+        json_result = json.dumps({"result": msg})
+        safe_json_result = shlex.quote(json_result)
+        command = f"echo PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:application/json; echo PYGEOAPI_K8S_MANAGER_RESULT_START; echo -n {safe_json_result}"
         if self.command:
             command = f"{'; '.join(str(c) for c in self.command)}; {command}"
 
