@@ -238,11 +238,7 @@ This work is licensed in [Apache 2.0](./LICENSE).
 Create/Update the NOTICE file using the following command **AFTER** building the image:
 
 ```shell
-docker run \
-  --rm \
-  --entrypoint "/bin/bash" \
-  52north/pygeoapi-k8s-manager:latest \
-  -c "pip install --no-warn-script-location --no-cache-dir pip-licenses > /dev/null && /usr/local/bin/pip-licenses -f plain | grep -v pygeoapi-k8s-manager"
+./scripts/generate-notice.sh
 ```
 
 The developments are based on [pygeoapi-kubernetes-papermill](https://github.com/eoxhub-workspaces/pygeoapi-kubernetes-papermill).
