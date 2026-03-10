@@ -4,26 +4,32 @@ Kind documentation: <https://kind.sigs.k8s.io/>
 
 ## Create Kubernetes cluster
 
+Switch to `k8s-kind`:
+
+```shell
+cd ./k8s-kind
+```
+
 Create cluster:
 
 ```shell
-kind create cluster --config kind-cluster.yaml
+k8s-kind/$ kind create cluster --config kind-cluster.yaml
 ```
 
 Check cluster:
 
 ```shell
-kubectl cluster-info --context kind-pygeoapi-k8s-manager
+k8s-kind/$ kubectl cluster-info --context kind-pygeoapi-k8s-manager
 ```
 
 ## Prepare Docker Image
 
-Build docker image as [outlined in the documentation](../README.md#container), but set `VERSION` to `local`.
+Build docker image as [outlined in the documentation](../README.md#container), but set the image tag `latest` to `local`.
 
 [Load docker image](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster) into kind cluster:
 
 ```shell
-kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k8s-manager:local
+k8s-kind/$ kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k8s-manager:local
 ```
 
 ### Kind image management (for debugging)
@@ -31,13 +37,18 @@ kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k8s-manager:
 Check available images:
 
 ```shell
-docker exec -it pygeoapi-k8s-manager-control-plane crictl images
+k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl images
 ```
 
 Delete image:
 
 ```shell
-docker exec -it pygeoapi-k8s-manager-control-plane crictl rmi <id>
+k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl rmi \
+  $(\
+    docker exec -it pygeoapi-k8s-manager-control-plane crictl images \
+    | grep --color=never pygeoapi-k8s-manager \
+    | awk '{print $3}'\
+  )
 ```
 
 ## Run containers
