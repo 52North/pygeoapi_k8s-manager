@@ -24,7 +24,11 @@ k8s-kind/$ kubectl cluster-info --context kind-pygeoapi-k8s-manager
 
 ## Prepare Docker Image
 
-Build docker image as [outlined in the documentation](../README.md#container), but set the image tag `latest` to `local`.
+Build docker image as [outlined in the documentation](../README.md#container), but set the image tag `latest` to `local`:
+
+```shell
+k8s-kind/$ docker tag 52north/pygeoapi-k8s-manager:latest 52north/pygeoapi-k8s-manager:local
+```
 
 [Load docker image](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster) into kind cluster:
 
