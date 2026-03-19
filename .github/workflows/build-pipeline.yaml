@@ -11,6 +11,7 @@ env:
   IMAGE_TITLE: 52°North pygeoapi with k8s-manager
   IMAGE_VENDOR: 52°North GmbH
   METADATA_TAG_PATTERN: v(.*)
+  PYGEOAPI_VERSION: 0.23.1
 on:
   workflow_dispatch:
     inputs:
@@ -96,6 +97,7 @@ jobs:
           GIT_TAG=${{ env.TAG }}
           GIT_BRANCH=${{ env.BRANCH }}
           VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
+          PYGEOAPI_VERSION=${{ env.PYGEOAPI_VERSION }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

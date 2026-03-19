@@ -1,6 +1,6 @@
 [project]
 name = "pygeoapi-k8s-manager"
-version = "0.23"
+version = "0.24"
 description = "Job manager for pygeoapi using k8s api server"
 readme = "README.md"
 license = { text = "Apache Software License 2.0"}
@@ -14,7 +14,7 @@ dependencies = [
     "botocore>=1.38.37",
     "filelock>=3",
     "kubernetes>=31,<32",
-    "pygeoapi==0.23.0",
+    "pygeoapi==0.23.1",
 ]
 
 [build-system]

@@ -1,4 +1,8 @@
-FROM geopython/pygeoapi:0.23.0
+ARG PYGEOAPI_VERSION=0.23.1
+
+FROM geopython/pygeoapi:${PYGEOAPI_VERSION}
+
+ARG VERSION=0.24
 
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
@@ -21,11 +25,10 @@ RUN apt-get update \
 
 WORKDIR /k8s-manager
 
-ARG VERSION=0.23
 LABEL org.opencontainers.image.version="${VERSION}"
 
 COPY . .
-RUN sed -i "s/^version = .*/version = \"${VERSION:-0.15}\"/" pyproject.toml
+RUN sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
     uv pip install --python /venv --group docker \

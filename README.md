@@ -120,6 +120,37 @@ The project specific kind set-up is outlined in [/k8s-kind/](./k8s-kind/README.m
 
 The docker dependency group is used during building the docker image, which is based on pygeoapi, hence no pygeoapi package needs to be installed.
 
+### Increase pygeoapi/project version
+
+Files to adjust:
+
+- `Dockerfile`
+- `.github/workflows/build-pipeline.yaml`
+- `pyproject.toml`
+- `uv.lock`
+- `README.md`
+
+- **pygeoapi**
+
+  ```shell
+  PYGEOAPI_VERSION=0.23.1
+  sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
+  sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
+  sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
+  sed -i -E "s/^([[:space:]]+)PYGEOAPI_VERSION=.*/\1PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" README.md && \
+  uv sync --upgrade
+  ```
+
+- **pygeoapi-k8s-manager**
+
+  ```shell
+  VERSION=0.24
+  sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
+  sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
+  sed -i -E "s/^([[:space:]]+)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
+  uv sync --upgrade
+  ```
+
 ### Debugging with vscode
 
 The project come with vscode debug launch configuration, that works with the kind cluster configuration.
@@ -131,7 +162,8 @@ For debugging, only the minio set-up is required.
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.23 \
+VERSION=0.24 \
+PYGEOAPI_VERSION=0.23.1 \
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
@@ -153,7 +185,7 @@ Notice the **whitespace before the command** to prevent the secrets to be stored
 If the used shell does NOT support this, ensure another procedure to prevent leaking of the credentials
 
 ```shell
- REGISTRY=docker.io \
+REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 docker run \
   --env PYGEOAPI_K8S_MANAGER_NAMESPACE=default \
@@ -173,18 +205,31 @@ docker run \
 
 **Scan** the image for vulnerabilities
 
-```shell
-docker run -ti --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /tmp/aquasec-trivy-cache:/root/.cache/ \
-    aquasec/trivy:latest \
-    image \
-        --scanners vuln \
-        --format table \
-        --severity CRITICAL,HIGH \
-        --ignore-unfixed \
-        52north/pygeoapi-k8s-manager:latest
-```
+- **Without local trivy installation**:
+
+  ```shell
+  docker run -ti --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /tmp/aquasec-trivy-cache:/root/.cache/ \
+      aquasec/trivy:latest \
+      image \
+          --scanners vuln \
+          --format table \
+          --severity CRITICAL,HIGH \
+          --ignore-unfixed \
+          52north/pygeoapi-k8s-manager:latest
+  ```
+
+- **With local trivy installation**:
+
+  ```shell
+  trivy image \
+      --scanners vuln \
+      --format table \
+      --severity CRITICAL,HIGH \
+      --ignore-unfixed \
+      52north/pygeoapi-k8s-manager:latest
+  ```
 
 **Upload to registry** after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):
 
