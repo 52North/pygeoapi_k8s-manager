@@ -29,6 +29,7 @@
 import datetime
 import os
 from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, ANY
 
 import pytest
 from boto3.session import Session
@@ -295,3 +296,24 @@ def test_handle_job_ended_event_does_not_fail_if_no_pod_found_for_job(finalizer)
 
     mocked_get_logs_for_pod.assert_not_called()
     mocked_upload_logs_to_s3.assert_not_called()
+
+def test_delete_job_success(finalizer):
+    k8s_batch_api = MagicMock()
+
+    result = finalizer.delete_job("test-job", k8s_batch_api)
+
+    k8s_batch_api.delete_namespaced_job.assert_called_once_with(
+        name="test-job",
+        namespace=finalizer.namespace,
+        body=ANY,
+    )
+    assert result is True
+
+
+def test_delete_job_failure(finalizer):
+    k8s_batch_api = MagicMock()
+    k8s_batch_api.delete_namespaced_job.side_effect = Exception("Error")
+
+    result = finalizer.delete_job("test-job", k8s_batch_api)
+
+    assert result is False
