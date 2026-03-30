@@ -27,6 +27,19 @@ spec:
         args: ["server"]
         ports:
           - containerPort: 3900
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3900
+          initialDelaySeconds: 10
+          periodSeconds: 20
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3900
+          initialDelaySeconds: 5
+          periodSeconds: 10
         envFrom:
           - secretRef:
               name: garage-credentials
@@ -49,3 +62,26 @@ spec:
     - port: 3900
       targetPort: 3900
       nodePort: 30091
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: garage-bucket-init
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: init-bucket
+        image: amazon/aws-cli
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          value: garage_admin
+        - name: AWS_SECRET_ACCESS_KEY
+          value: garage_admin
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            sleep 10
+            aws --endpoint-url=http://garage:3900 s3 mb s3://test-bucket || true
+      restartPolicy: Never
