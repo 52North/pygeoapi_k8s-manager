@@ -4,6 +4,10 @@ FROM geopython/pygeoapi:${PYGEOAPI_VERSION}
 
 ARG VERSION=0.26
 
+ARG K8S_VERSION=1.35
+
+ENV K8S_VERSION=${K8S_VERSION}
+
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.url="https://github.com/52North/pygeoapi-k8s-manager.git" \

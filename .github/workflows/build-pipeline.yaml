@@ -29,6 +29,10 @@ jobs:
     name: "pygeoapi-k8s-manager: build, scan, and publish"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s_version: ["1.33","1.34", "1.35"]
     steps:
     -
       name: Checkout Repository
@@ -99,6 +103,7 @@ jobs:
           GIT_TAG=${{ env.TAG }}
           VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
           PYGEOAPI_VERSION=${{ env.PYGEOAPI_VERSION }}
+
     -
       name: Run trivy vulnerability scanner
       # get latest version from https://github.com/aquasecurity/trivy-action/releases
