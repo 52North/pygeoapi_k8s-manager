@@ -1,0 +1,185 @@
+[33m3ffc6ab[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mimplement-delete-job[m[33m, [m[1;31morigin/implement-delete-job[m[33m)[m Align Garage service ports with MinIO for seamless replacement
+[33m2c8c3c6[m Add delete_job method to support OGC API Processes Dismiss operation
+[33mdf9ca42[m[33m ([m[1;32mmain[m[33m)[m Replace MinIO with Garage as S3-compatible storage backend
+[33m2d34db0[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix hello_world process job result retrieval
+[33mc75e58f[m Add script to generate NOTICE and update NOTICE
+[33mf03c249[m Switch to new upstream pygeoapi: 0.20.0 → 0.23.0
+[33m0c1c91a[m Add command to tag image to kind instructions
+[33m7c0c66c[m Increase python version 3.10 → 3.12
+[33m7ab64b5[m Increase kind node version: 1.31.9 → 1.32.11
+[33m9864f46[m Improve kind instructions
+[33m60b121f[m Bump the uv group across 1 directory with 5 updates
+[33m6d38db3[m Bump docker/setup-buildx-action from 3 to 4
+[33mb63ff96[m Bump docker/metadata-action from 5 to 6
+[33mafae5a0[m Bump docker/login-action from 3 to 4
+[33mbc44a61[m Bump docker/build-push-action from 6 to 7
+[33m9be28e0[m Do not try to handle pods that do not exist
+[33mf20ef35[m Add contributing documentation
+[33m113dd8a[m Bump actions/checkout from 5 to 6
+[33mbfe973f[m Update pipeline defaults
+[33m80b5701[m Improve documentation
+[33mb52d1c6[m Switch from slack to google chat for CVE scan result notifications
+[33m608e9d3[m Fix YAML syntax in pipeline
+[33m6679673[m Add Issue templates
+[33m2812885[m Update stale action configuration
+[33m1dc2b3b[m Fix links in funding table
+[33mc4ddf04[m Merge branch 'main' of github.com:52North/pygeoapi_k8s-manager
+[33m10d2f9a[m Add source file headers and notice in README to pygeoapi-kubernetes-papermill
+[33m9175788[m Add TwinShip to funding section
+[33m12e2d92[m Merge pull request #12 from 52North/dependabot/github_actions/astral-sh/setup-uv-7
+[33mffc7244[m Merge pull request #11 from 52North/dependabot/github_actions/actions/stale-10
+[33m13cd86c[m Bump astral-sh/setup-uv from 6 to 7
+[33m33446a7[m Bump actions/stale from 9 to 10
+[33md08016f[m Bump actions/checkout from 4 to 5
+[33m24d8ac7[m Remove duplicate /
+[33m3a0bb89[m Skip duplicate processing of jobs
+[33m4819b0d[m ruff formatting
+[33mfbef37a[m Bump astral-sh/setup-uv from 5 to 6
+[33m9073c85[m Add process id to env of each container
+[33m20498cb[m Add documentation regarding result handling
+[33m6f69edc[m Make result annotation handling more generic
+[33m7ed47c9[m support result annotations
+[33me36b372[m Upload logs of all containers incl. init containers
+[33mfd8dde8[m Update description in pyproject.toml
+[33m693e36f[m Add missing contributors to pyproject.toml
+[33m5c24fd4[m Migrate to astral.sh/uv
+[33me83053d[m Fix using class name and not constructor
+[33m910449f[m Rewrite controller_loop()
+[33m2f27d1e[m test NotImplementedErrors
+[33m1a19411[m Minor updates in job creation
+[33m3bda3d1[m Test execution authentication
+[33mb6564fc[m Add processor rejection test
+[33m9b22d39[m Minor improvements
+[33m153f777[m Minor adjustments to example configurations
+[33m0efb551[m Refactored finalizer to watch job events
+[33m9058a68[m increase minio init job resources
+[33m471572e[m Fix command handling in hello_world_k8s
+[33m7db2f9c[m Remove unused env variable
+[33me9f6039[m Fix log finalizer permission configuration and handling of k8s events
+[33m35390c7[m Add log to finalizer
+[33me24de7d[m Minor kind set-up adjustments
+[33m73ca21b[m Simplify hello_world_k8s
+[33m2fce0ed[m Update minio init job
+[33mc17790f[m Add init job to minio set-up in kind cluster
+[33m5a4db20[m Refactored kind set-up to incl. working log finalizer bucket
+[33me344fb0[m Fix kind set-up
+[33mdb26746[m Remove skipped tests
+[33m69c8fc6[m Fix handling image_pull_secretS
+[33m800d049[m Fix optional missing command in processor definition
+[33m0559049[m Minor linting
+[33m4aaf829[m Add pygeoapi job id to env of all containers
+[33mfdf1210[m Add support for emptyDir in GenericImageProcessor
+[33m1628815[m Sort NOTICE: A->Za->z => A->z
+[33m59ec8d2[m Update NOTICE
+[33mdc54fc5[m Update funding information aka credits
+[33m8818e18[m Init support for init_containers
+[33m04ee7f3[m Review kind documentation
+[33mecfd2ee[m Minor documentation clean-up
+[33mac740e4[m Add "Credits"
+[33mad58d5d[m Upload local test setup with kind
+[33m65feecf[m Fix auth token checking
+[33m6156b94[m Fix linting
+[33m9228819[m Add comment to clarify
+[33med1da41[m Extract finalizer.KubernetesFinalizerController from manager
+[33m6eaf07f[m Test default config of new k8s job
+[33m8c23b51[m Test finalizer config of new k8s job
+[33mfda0cf6[m Add TODOs
+[33m1666a9d[m Test toleration config of new k8s job
+[33mcfc272d[m Test annotation config of new k8s job
+[33mc004cac[m Set k8s job annotation _START and _UPDATED to same value during creation
+[33m97dc97c[m Linting
+[33m3175be1[m Minor changes...
+[33m48dd2be[m Improve finalizer management
+[33mee621d5[m Add finalizer to pod template metadata incl refactoring
+[33m1b195b3[m Switch event selection
+[33m991b6b8[m Fix toleration addition
+[33m439ced0[m chatgpt knows nothing and is a liar
+[33m41cbfa8[m increase version
+[33m3293e6c[m Log token only on DEBUG level
+[33mf6893bd[m Fix bug
+[33m402daf0[m Convert VERSION from ENV to ARG
+[33m00d85da[m minor change
+[33ma9c65fb[m workflow formatting
+[33m422dbd9[m Add test to pushed commit checks
+[33m20277c5[m Fix bug in generic_image.py
+[33m727fc6d[m ruff formatter check docstring
+[33mbcc6f8f[m Fix missing env VERSION in pipeline and update default in Dockerfile
+[33m4901ffe[m Organize imports
+[33mefc6ded[m Add tolerations
+[33m81b329f[m sort imported elements a->z
+[33macebb21[m Try to not lint pushes with tags
+[33m15d104e[m new tag v0.9
+[33ma9b4367[m Add test for "get_log_file_path"
+[33m4219bc3[m Rename job and steps
+[33md17d31c[m Add ruff format checks to pipelines
+[33ma5591c0[m ruff code formatting
+[33m27c2a6c[m Switch from flake8 to ruff
+[33ma654a65[m Improve pipeline
+[33m8e319d4[m Linting tests, too
+[33m9c42b95[m More tests and more refactoring
+[33mb14eaa0[m Add tests and refactoring
+[33md62a6a1[m Use shorter qualified class name
+[33mb956aee[m Add flake8 on push and PR workflow
+[33md7fa7cb[m Code linting with flake8 incl. pipeline update
+[33m0053593[m Invert result of manager.check_s3_upload_variables() and add according test
+[33maa451d4[m maintain tests
+[33m45379e6[m Add tests to build pipeline
+[33m21ffdae[m Configure log format incl. process id and shorter prefix
+[33m2889a9a[m Markdown linting: remove list with only one element
+[33mb8ec1e6[m Implement job log finalizer
+[33mb22b0a9[m Update .gitignore
+[33medcca4e[m Switch stale schedule from daily to once a week
+[33mb3192ad[m Add finalizer controller loop
+[33m4742a65[m Organize imports
+[33m8a08b3b[m Try to fix "SyntaxError: f-string: unmatched '['"
+[33m2955c37[m Add stale bot
+[33m2b1f261[m Improve error handling incl. according tests
+[33mcd97b5b[m Fix handling of absent pods and logs
+[33m9a1a9c2[m Add missing env variable to workflow
+[33m31d4c2f[m Add deployment info and fix build info
+[33m0fd47ba[m Add documentation and examples for k8s configuration
+[33m1c0dc85[m Update documentation regarding image and repository
+[33mc75c2a2[m Add build pipeline
+[33mccbb1d3[m Build info adjustments
+[33me85e110[m Increase k8s version
+[33md315a41[m Minor image polishing
+[33m13d21db[m Minor changes
+[33m68b3eca[m add task
+[33m9bc06c5[m Update version in README.md
+[33m138b9c9[m Minor changes
+[33m4e3145f[m Minor documentation update
+[33m79a55e3[m Extent GenericImageProcessor documentation
+[33m428092b[m Implement injecting inputs via env variable PYGEOAPI_K8S_MANAGER_INPUTS
+[33mc710bc6[m Update README.md
+[33m5e1c987[m Implement first storage support...
+[33m3d6f239[m Implement not specified resources handling
+[33m41b408d[m Implement not specified env
+[33ma7664db[m Add example configuration for GenericImageProcessor
+[33mc26ab54[m Implement support for not specified image_pull_secret
+[33mda29ba7[m Fix some minor errors...
+[33m7486a8d[m Fix wrong container.command testing
+[33m54c6555[m Add check for too long key
+[33mf923e52[m Add parsing example input
+[33mfec164a[m Add processor keywords test
+[33m3d5d872[m Add token protection to each KubernetesManager "execution"
+[33m7d0dc35[m GenericImageProcessor: add environment and resources parsing incl. tests
+[33ma721177[m Move tolerations parsing to KubernetesProcessor
+[33m2ff9360[m Adjust comment to better reflect implementation
+[33mf0eb548[m Init GenericImageProcessor
+[33m127abbc[m Minor changes: empty lines between classes, functions adjusted
+[33m944c842[m Remove typed_json_dataclass dependency
+[33m5763f2d[m Improve hello_world_k8s incl. tests
+[33m6e3f877[m Fix None mimetype links
+[33mffa4a34[m Update pygeoapi: 0.19.0 -> 0.20.0
+[33me5381e4[m Improve build info display
+[33m4a8c1b4[m Add hello world processor
+[33m4b17a51[m Documentation update
+[33m9ee6d7d[m Minor Dockerfile adjustments
+[33m02edcf0[m Add license information
+[33mf17ef97[m Add host/static/info.txt with non-confidential build information
+[33mb07b9dc[m Clean-Up image
+[33m7fd8229[m Allow namespace config via environment variable for non in-cluster deplyoment
+[33m3890ce5[m Add job manager dependency log level configuration
+[33m1e50ae5[m Add image handling instructions
+[33m5657b3a[m Fight CVEs of base image OS
+[33m5e38cfc[m [WIP] init
