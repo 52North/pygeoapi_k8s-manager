@@ -34,7 +34,8 @@ from threading import Thread
 
 import boto3
 import boto3.session
-from botocore.client import BaseClient
+from kubernetes.client import BatchV1Api, V1DeleteOptions
+from botocore.client import BaseClient, logger
 from botocore.exceptions import ClientError
 from filelock import FileLock, Timeout
 from kubernetes import watch
@@ -127,7 +128,24 @@ class KubernetesFinalizerController:
         jobs = k8s_batch_api.list_namespaced_job(self.namespace)
         self.resource_version = jobs.metadata.resource_version
         LOGGER.debug(f"resource_version received: '{self.resource_version}'.")
+<<<<<<< Updated upstream
 
+=======
+    def delete_job(self, job_id: str, k8s_batch_api: BatchV1Api | None = None):
+        if k8s_batch_api is None:
+            k8s_batch_api = BatchV1Api()
+        try:
+            k8s_batch_api.delete_namespaced_job(
+                name=job_id,
+                namespace=self.namespace,
+                body=V1DeleteOptions(propagation_policy="Foreground"),
+            )
+            LOGGER.info(f"Deleted job {job_id}")
+            return True
+        except Exception as e:
+            LOGGER.error(f"Failed to delete job {job_id}: {e}")
+            return False
+>>>>>>> Stashed changes
     def check_s3_log_upload_variables(self) -> None:
         upload_logs_to_s3 = True
         for key in (
