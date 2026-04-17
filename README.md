@@ -133,21 +133,21 @@ Files to adjust:
 - **pygeoapi**
 
   ```shell
-  PYGEOAPI_VERSION=0.23.1
+  PYGEOAPI_VERSION=0.23.2
   sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
   sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
   sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
-  sed -i -E "s/^([[:space:]]+)PYGEOAPI_VERSION=.*/\1PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" README.md && \
+  sed -i -E "s/^([[:space:]]*)PYGEOAPI_VERSION=.*/\1PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" README.md && \
   uv sync --upgrade
   ```
 
 - **pygeoapi-k8s-manager**
 
   ```shell
-  VERSION=0.24
+  VERSION=0.25
   sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
   sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
-  sed -i -E "s/^([[:space:]]+)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
+  sed -i -E "s/^([[:space:]]*)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
   uv sync --upgrade
   ```
 
@@ -162,8 +162,8 @@ For debugging, only the minio set-up is required.
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.24 \
-PYGEOAPI_VERSION=0.23.1 \
+VERSION=0.25
+PYGEOAPI_VERSION=0.23.2
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
