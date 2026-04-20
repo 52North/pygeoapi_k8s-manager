@@ -128,25 +128,7 @@ class KubernetesFinalizerController:
         jobs = k8s_batch_api.list_namespaced_job(self.namespace)
         self.resource_version = jobs.metadata.resource_version
         LOGGER.debug(f"resource_version received: '{self.resource_version}'.")
-    def delete_job(self, job_id: str, k8s_batch_api: BatchV1Api | None = None):
-        if k8s_batch_api is None:
-            k8s_batch_api = BatchV1Api()
-
-        try:
-            k8s_batch_api.delete_namespaced_job(
-                name=job_id,
-                namespace=self.namespace,
-                body=k8s_client.V1DeleteOptions(
-                    propagation_policy="Foreground"
-                ),
-            )
-            LOGGER.info(f"Job '{job_id}' deleted successfully.")
-            return True
-
-        except Exception as e:
-            LOGGER.error(f"Failed to delete job '{job_id}': {e}")
-            return False
-
+        
     def check_s3_log_upload_variables(self) -> None:
         upload_logs_to_s3 = True
         for key in (
