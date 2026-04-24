@@ -133,7 +133,7 @@ Files to adjust:
 - **pygeoapi**
 
   ```shell
-  PYGEOAPI_VERSION=0.23.2
+  PYGEOAPI_VERSION=0.23.3
   sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
   sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
   sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
@@ -144,7 +144,7 @@ Files to adjust:
 - **pygeoapi-k8s-manager**
 
   ```shell
-  VERSION=0.25
+  VERSION=0.26
   sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
   sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
   sed -i -E "s/^([[:space:]]*)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
@@ -162,8 +162,8 @@ For debugging, only the minio set-up is required.
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.25
-PYGEOAPI_VERSION=0.23.2
+VERSION=0.26
+PYGEOAPI_VERSION=0.23.3
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
