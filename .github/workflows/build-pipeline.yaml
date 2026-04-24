@@ -26,7 +26,7 @@ on:
 
 jobs:
   push_to_docker_hub:
-    name: "pygeoapi-k8s-manager: build, publish and scan container image"
+    name: "pygeoapi-k8s-manager: build, scan, and publish"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -73,13 +73,13 @@ jobs:
       name: Install the project
       run: uv sync --locked --all-extras --dev
     -
-      name: run linter and formatter
+      name: Run linter and formatter
       run: |
         uv run ruff check
         uv run ruff check --select I
         uv run ruff format --diff
     -
-      name: run tests
+      name: Run tests
       run: |
         uv run pytest tests/
     -
@@ -118,7 +118,7 @@ jobs:
         scanners: vuln,secret,misconfig
         severity: CRITICAL,HIGH
     -
-      name: remove empty results
+      name: Remove empty results
       run: |
         vulnerabilities=$(cat trivy-results.json | jq 'if (.Results | length) == 0 then 0 else [.Results[].Vulnerabilities | length] | add end'); \
         if [[ "$vulnerabilities" -eq 0 ]]; then \
