@@ -102,7 +102,7 @@ jobs:
     -
       name: Run trivy vulnerability scanner
       # get latest version from https://github.com/aquasecurity/trivy-action/releases
-      uses: aquasecurity/trivy-action@v0.35.0
+      uses: aquasecurity/trivy-action@v0.36.0
       env:
         TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
         TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
@@ -128,7 +128,7 @@ jobs:
       if: ${{ hashFiles('trivy-results.json') != '' }}
       name: Convert JSON to human readable table
       # get latest version from https://github.com/aquasecurity/trivy-action/releases
-      uses: aquasecurity/trivy-action@v0.35.0
+      uses: aquasecurity/trivy-action@v0.36.0
       env:
         TRIVY_FORMAT: table
         TRIVY_DISABLE_VEX_NOTICE: "true"
