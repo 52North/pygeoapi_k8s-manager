@@ -283,6 +283,12 @@ class KubernetesManager(BaseManager):
                 raise JobNotFoundError(f"Job with id '{job_id}' not found.") from e
             else:
                 raise
+        
+    def delete_job(self, job_id):
+        self.batch_v1.delete_namespaced_job(
+            name=format_job_name(job_id),
+            namespace=self.namespace,
+        )
 
     def get_job_result(self, job_id) -> tuple[Optional[Any], Optional[str]]:
         """

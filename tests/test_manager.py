@@ -457,6 +457,15 @@ def test_update_job_returns_not_implemented_error(manager):
     assert error.type is NotImplementedError
     assert error.match("Currently there's no use case for updating k8s jobs")
 
+def test_delete_job(manager):
+    with patch.object(BatchV1Api, "delete_namespaced_job") as mock_delete:
+        manager.delete_job("test-job")
+
+    mock_delete.assert_called_once_with(
+        name=format_job_name("test-job"),
+        namespace=manager.namespace,
+    )
+
 
 @pytest.fixture
 def manager_with_log_level():
