@@ -126,18 +126,18 @@ server:
 **environment variables available**:
 
 | **name** | **comment** |
-|---|---|
+| --- | --- |
 | `PYGEOAPI_JOB_ID` | Each container (normal and init) of the job pod will receive this variable containing the pygeoapi provided id of the current job, e.g. `99755242-31af-11f0-80bd-0255ac10006c`. |
 
 **environment variables to configure**:
 
-| **name** | **comment** |
-|---|---|
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT` | Endpoint of the bucket hosting service, similar to `FSSPEC_S3_ENDPOINT_URL`, e.g. OTC: `https://obs.eu-de.otc.t-systems.com` |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY` | The access key with permission to upload files to the given "path", similar to `FSSPEC_S3_KEY` |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET` | The access key secret for the key, similar to `FSSPEC_S3_SECRET`. |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME` | Name of the bucket. |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX` | The "folder" the log files will be uploaded to. It MUST end with an `/`. |
+| **name**                                            | **comment**                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT`    | Endpoint of the bucket hosting service, similar to `FSSPEC_S3_ENDPOINT_URL`, e.g. OTC: `https://obs.eu-de.otc.t-systems.com` |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY`         | The access key with permission to upload files to the given "path", similar to `FSSPEC_S3_KEY`                               |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET`      | The access key secret for the key, similar to `FSSPEC_S3_SECRET`.                                                            |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME`        | Name of the bucket.                                                                                                          |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX` | The "folder" the log files will be uploaded to. It MUST end with an `/`.                                                     |
 
 Ensure, that the bucket is **not publicly** available in the internet, because the logs might leak confidential information and should be consulted only by technical personnel.
 
