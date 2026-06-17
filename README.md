@@ -156,9 +156,8 @@ The project specific kind set-up is outlined in [/k8s-kind/](./k8s-kind/README.m
 
 - Add normal dependency: `uv add dependency`
 - Add `dev` dependency: `uv add --dev dependency`
-- Add `docker` dependency: `uv add --group docker dependency`
 
-The docker dependency group is used during building the docker image, which is based on pygeoapi, hence no pygeoapi package needs to be installed.
+The docker image installs the project's `[project].dependencies`; pygeoapi itself is provided by the base image and therefore does not need to be reinstalled.
 
 ### Increase pygeoapi/project version
 

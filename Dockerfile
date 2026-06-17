@@ -31,8 +31,7 @@ COPY . .
 RUN sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
-    uv pip install --python /venv --group docker \
-&& uv build --sdist \
+    uv build --sdist \
 && uv pip install --python /venv "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" \
 && rm -rv /k8s-manager \
 && rm -rv /root/.cache

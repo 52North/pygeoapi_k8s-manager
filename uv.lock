@@ -794,12 +794,6 @@ dev = [
     { name = "ruff" },
     { name = "time-machine" },
 ]
-docker = [
-    { name = "boto3" },
-    { name = "botocore" },
-    { name = "filelock" },
-    { name = "kubernetes" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -816,12 +810,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.2.1" },
     { name = "ruff", specifier = ">=0.11.13" },
     { name = "time-machine", specifier = ">=2.16.0" },
-]
-docker = [
-    { name = "boto3", specifier = ">=1.38.37" },
-    { name = "botocore", specifier = ">=1.38.37" },
-    { name = "filelock", specifier = ">=3" },
-    { name = "kubernetes", specifier = ">=33,<34" },
 ]
 
 [[package]]
