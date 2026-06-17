@@ -553,6 +553,12 @@ def test_create_job_body_sets_required_annotations(job_id, mocked_processor, mim
         assert job.metadata.annotations["pygeoapi.io/started"] == job.metadata.annotations["pygeoapi.io/updated"]
 
 
+def test_create_job_body_does_not_set_finalizer_if_setting_is_false(mocked_processor, job_id):
+    job = create_job_body(mocked_processor, job_id, {}, False)
+
+    assert job.spec.template.metadata.finalizers is None
+
+
 class KubernetesProcessorForTesting(KubernetesProcessor):
     def create_job_pod_spec(self, data, job_name):
         return KubernetesProcessor.JobPodSpec(V1PodSpec(containers=[V1Container(name="test-container")]), {})

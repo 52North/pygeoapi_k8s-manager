@@ -441,7 +441,7 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
         spec=V1JobSpec(
             template=V1PodTemplateSpec(
                 # metadata=V1ObjectMeta(labels=job_pod_spec.extra_labels),
-                metadata=V1ObjectMeta(finalizers=[format_log_finalizer()] if add_finalizer is not None else None),
+                metadata=V1ObjectMeta(finalizers=[format_log_finalizer()] if add_finalizer else None),
                 spec=job_pod_spec.pod_spec,
             ),
             backoff_limit=0,
