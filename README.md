@@ -277,7 +277,14 @@ docker run \
       52north/pygeoapi-k8s-manager:latest
   ```
 
-**Upload to registry** after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):
+**Vulnerability scanning policy**:
+
+The [CI pipeline](.github/workflows/build-pipeline.yaml) blocks the image push **only** on `CRITICAL`/`HIGH` vulnerabilities that have an available fix (`--ignore-unfixed`).
+Such a finding is reported internally to the maintainers.
+`MEDIUM`/`LOW` and unfixed vulnerabilities are **deliberately not gated**.
+For visibility, every release build publishes a non-blocking full Trivy report (all severities, including unfixed) as the CI artifact `trivy-report-full` (retained 180 days) for periodic or on-demand review.
+
+**Manual upload to registry** after successful docker login:
 
 ```shell
 docker push --all-tags 52north/pygeoapi-k8s-manager

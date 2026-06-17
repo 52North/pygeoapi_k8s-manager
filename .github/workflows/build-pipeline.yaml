@@ -100,6 +100,34 @@ jobs:
           VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
           PYGEOAPI_VERSION=${{ env.PYGEOAPI_VERSION }}
     -
+      name: Trivy full report
+      continue-on-error: true
+      # get latest version from https://github.com/aquasecurity/trivy-action/releases
+      uses: aquasecurity/trivy-action@v0.36.0
+      env:
+        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+        TRIVY_DISABLE_VEX_NOTICE: "true"
+      with:
+        scan-type: image
+        image-ref: '${{ env.IMAGE_TAG }}:local-scan'
+        format: table
+        output: trivy-report-full.txt
+        exit-code: '0'
+        ignore-unfixed: false
+        vuln-type: os,library
+        scanners: vuln
+        severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+    -
+      name: Upload full vulnerability report
+      continue-on-error: true
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-report-full
+        path: trivy-report-full.txt
+        retention-days: 180
+        if-no-files-found: warn
+    -
       name: Run trivy vulnerability scanner
       # get latest version from https://github.com/aquasecurity/trivy-action/releases
       uses: aquasecurity/trivy-action@v0.36.0
