@@ -12,7 +12,7 @@ env:
   IMAGE_VENDOR: 52°North Spatial Information Research GmbH
   IMAGE_URL: https://github.com/52North/pygeoapi_k8s-manager
   METADATA_TAG_PATTERN: v(.*)
-  PYGEOAPI_VERSION: 0.23.3
+  PYGEOAPI_VERSION: 0.23.4
 on:
   workflow_dispatch:
     inputs:
