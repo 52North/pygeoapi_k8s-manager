@@ -104,6 +104,28 @@ K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
 
 AUTH_TOKEN_INPUT_KEY = "token"
 
+ENV_POD_SECURITY_CONTEXT = "PYGEOAPI_K8S_MANAGER_JOB_POD_SECURITY_CONTEXT"
+ENV_CONTAINER_SECURITY_CONTEXT = "PYGEOAPI_K8S_MANAGER_JOB_CONTAINER_SECURITY_CONTEXT"
+DEFAULT_POD_SECURITY_CONTEXT = {"seccompProfile": {"type": "RuntimeDefault"}}
+DEFAULT_CONTAINER_SECURITY_CONTEXT = {
+    "allowPrivilegeEscalation": False,
+    "capabilities": {"drop": ["ALL"]},
+}
+
+
+def _security_context_from_env(env_key: str, default: dict) -> Optional[dict]:
+    raw = os.getenv(env_key)
+    if raw is None:
+        return default
+    if raw.strip().lower() in ("", "off", "none"):
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        msg = f"Invalid JSON in env '{env_key}'; refusing to start jobs with an undefined security context."
+        LOGGER.error(msg)
+        raise ProcessorExecuteError(msg) from e
+
 
 class KubernetesProcessor(BaseProcessor):
     @dataclass()
@@ -115,13 +137,30 @@ class KubernetesProcessor(BaseProcessor):
         super().__init__(processor_def, process_metadata)
         self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
         self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
-        self.is_check_auth = processor_def["check_auth"] if "check_auth" in processor_def else None
+        self.is_check_auth = processor_def.get("check_auth")
+        self.pod_security_context = processor_def.get(
+            "pod_security_context",
+            _security_context_from_env(ENV_POD_SECURITY_CONTEXT, DEFAULT_POD_SECURITY_CONTEXT),
+        )
+        self.container_security_context = processor_def.get(
+            "container_security_context",
+            _security_context_from_env(ENV_CONTAINER_SECURITY_CONTEXT, DEFAULT_CONTAINER_SECURITY_CONTEXT),
+        )
 
     def _add_tolerations(self, job_spec: JobPodSpec):
         if self.tolerations:
             tolerations: list[V1Toleration] = [V1Toleration(**toleration) for toleration in self.tolerations]
             job_spec.pod_spec.tolerations = tolerations
         return job_spec
+
+    def _add_security_context(self, job_spec: JobPodSpec) -> None:
+        if self.pod_security_context is not None:
+            job_spec.pod_spec.security_context = self.pod_security_context
+        if self.container_security_context is not None:
+            containers = (job_spec.pod_spec.containers or []) + (job_spec.pod_spec.init_containers or [])
+            for container in containers:
+                if container.security_context is None:
+                    container.security_context = self.container_security_context
 
     def check_auth(self) -> bool:
         """
@@ -429,6 +468,8 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
 
     if p.tolerations is not None and len(p.tolerations) > 0:
         job_pod_spec = p._add_tolerations(job_pod_spec)
+
+    p._add_security_context(job_pod_spec)
 
     job_pod_spec.pod_spec = add_metadata_env(job_pod_spec.pod_spec, job_id, p.metadata.get("id"))
 

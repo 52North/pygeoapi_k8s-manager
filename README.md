@@ -18,6 +18,46 @@ An `ProcessorExecuteError` will be raised if not given and matching.
 The check for this token can be disabled by using the processor definition and setting the property `check_auth` to `False`.
 In addition, your processor can override the method `check_auth`.
 
+### Job Pod Security Context
+
+Every job pod the manager creates is hardened with a baseline `securityContext` by default:
+
+- pod-level: `seccompProfile.type: RuntimeDefault`
+- container-level (applied to all containers and init containers): `allowPrivilegeEscalation: false`, `capabilities.drop: ["ALL"]`
+
+This baseline hardens most workloads without breaking arbitrary images.
+The context can be adjusted on two levels; precedence is **`processor_def` > environment variable > baseline default**.
+
+Globally, the context can be set via environment variables as JSON using the Kubernetes API field names (i.e. `camelCase`).
+Set a variable to `off` (or `none`) to disable that context.
+If a variable contains invalid JSON, no job is started and a `ProcessorExecuteError` is raised — the manager never silently falls back to a weaker context.
+
+| Environment variable                                  | Description                             |
+| ----------------------------------------------------- | --------------------------------------- |
+| `PYGEOAPI_K8S_MANAGER_JOB_POD_SECURITY_CONTEXT`       | Pod-level `securityContext` as JSON.    |
+| `PYGEOAPI_K8S_MANAGER_JOB_CONTAINER_SECURITY_CONTEXT` | Container-level `securityContext` JSON. |
+
+Per process, the context can be set in the processor definition (`pygeoapi-config.yaml`) using the keys `pod_security_context` and `container_security_context`.
+Setting a key to `null` disables that context for the process.
+
+The following recommended hardened ("restricted") example may require adjustments for arbitrary images, e.g. a writable root filesystem or a specific UID.
+
+```yaml
+    processor:
+      name: pygeoapi_k8s_manager.process.GenericImageProcessor
+      pod_security_context:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      container_security_context:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+```
+
 ## k8s Configuration Requirements
 
 Required RBAC rules:
@@ -158,6 +198,12 @@ The details can be found in the two folders in `.vscode/` and `k8s-kind/`.
 For debugging, only the minio set-up is required.
 
 ## Container
+
+### Known Limitation: Manager Container Hardening
+
+The configurable `securityContext` described above applies to the **spawned job pods**, not to the manager pod itself.
+The manager container is **not** hardened (`runAsNonRoot` / `readOnlyRootFilesystem` are not set), because the `geopython/pygeoapi` base image runs as root, binds the privileged port 80, and writes `/pygeoapi/local.openapi.yml` at startup.
+Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would therefore require base-image changes (a non-root UID, a high port, and writable mounts) and is out of scope for this project.
 
 **Build** the latest container image with docker using the following command:
 

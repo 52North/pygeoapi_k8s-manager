@@ -63,6 +63,10 @@ from kubernetes.client import (
 from pygeoapi.process.base import BaseProcessor, JobNotFoundError, JobResultNotFoundError, ProcessorExecuteError
 
 from pygeoapi_k8s_manager.manager import (
+    DEFAULT_CONTAINER_SECURITY_CONTEXT,
+    DEFAULT_POD_SECURITY_CONTEXT,
+    ENV_CONTAINER_SECURITY_CONTEXT,
+    ENV_POD_SECURITY_CONTEXT,
     KubernetesManager,
     KubernetesProcessor,
     add_metadata_env,
@@ -589,6 +593,57 @@ def test_create_job_body_sets_tolerations(testing_processor, job_id):
     assert tolerations[0].value == "toleration-value"
     assert tolerations[0].operator == "Equal"
     assert tolerations[0].effect == "NoSchedule"
+
+
+def test_default_security_context_applied(testing_processor, job_id):
+    job = create_job_body(testing_processor, job_id, {}, False)
+
+    pod_spec = job.spec.template.spec
+    assert pod_spec.security_context == DEFAULT_POD_SECURITY_CONTEXT
+    assert pod_spec.containers[0].security_context == DEFAULT_CONTAINER_SECURITY_CONTEXT
+
+
+def test_security_context_disabled_via_env(process_id, job_id):
+    os.environ[ENV_POD_SECURITY_CONTEXT] = "off"
+    os.environ[ENV_CONTAINER_SECURITY_CONTEXT] = "none"
+    processor = KubernetesProcessorForTesting({"name": "test-processor-name"}, {"id": process_id})
+
+    job = create_job_body(processor, job_id, {}, False)
+
+    pod_spec = job.spec.template.spec
+    assert pod_spec.security_context is None
+    assert pod_spec.containers[0].security_context is None
+
+    del os.environ[ENV_POD_SECURITY_CONTEXT]
+    del os.environ[ENV_CONTAINER_SECURITY_CONTEXT]
+
+
+def test_security_context_override_via_processor_def(process_id, job_id):
+    pod_security_context = {"runAsNonRoot": True, "runAsUser": 1000}
+    container_security_context = {"readOnlyRootFilesystem": True}
+    processor = KubernetesProcessorForTesting(
+        {
+            "name": "test-processor-name",
+            "pod_security_context": pod_security_context,
+            "container_security_context": container_security_context,
+        },
+        {"id": process_id},
+    )
+
+    job = create_job_body(processor, job_id, {}, False)
+
+    pod_spec = job.spec.template.spec
+    assert pod_spec.security_context == pod_security_context
+    assert pod_spec.containers[0].security_context == container_security_context
+
+
+def test_security_context_invalid_json_prevents_job_start(process_id):
+    os.environ[ENV_POD_SECURITY_CONTEXT] = "{invalid-json"
+    with pytest.raises(ProcessorExecuteError) as error:
+        KubernetesProcessorForTesting({"name": "test-processor-name"}, {"id": process_id})
+    assert error.match("Invalid JSON in env")
+
+    del os.environ[ENV_POD_SECURITY_CONTEXT]
 
 
 def test_create_job_body_sets_finalizer(testing_processor, job_id):
