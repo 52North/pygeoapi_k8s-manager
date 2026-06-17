@@ -30,6 +30,8 @@
 # pygeoapi-kubernetes-papermill is copyrighted by EOX IT Services GmbH
 # (https://eox.at) and published under the MIT license.
 # =================================================================
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -99,6 +101,8 @@ LOGGER = logging.getLogger(__name__)
 K8S_ANNOTATION_KEY_JOB_START = "started"
 K8S_ANNOTATION_KEY_JOB_END = "finished"
 K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
+
+AUTH_TOKEN_INPUT_KEY = "token"
 
 
 class KubernetesProcessor(BaseProcessor):
@@ -384,8 +388,9 @@ class KubernetesManager(BaseManager):
         if p.check_auth():
             self._check_auth_token(data_dict)
 
+        job_inputs = {k: v for k, v in data_dict.items() if k != AUTH_TOKEN_INPUT_KEY}
         add_finalizer = self.finalizer_controller is not None
-        job = create_job_body(p, job_id, data_dict, add_finalizer)
+        job = create_job_body(p, job_id, job_inputs, add_finalizer)
 
         LOGGER.debug(f"Trying to create job in namespace '{self.namespace}': '{job}")
         created_job = self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
@@ -394,19 +399,25 @@ class KubernetesManager(BaseManager):
 
     def _check_auth_token(self, data_dict: dict):
         key = "PYGEOAPI_K8S_MANAGER_API_TOKEN"
-        token = data_dict["token"] if "token" in data_dict.keys() else None
+        token = data_dict.get(AUTH_TOKEN_INPUT_KEY)
         if token is None:
             msg = "ACCESS DENIED: no token supplied!"
             LOGGER.error(msg)
             raise ProcessorExecuteError(msg)
 
-        if token != os.getenv(key):
+        expected = os.getenv(key)
+        if not expected:
+            LOGGER.error("ACCESS DENIED: server-side API token is not configured!")
+            raise ProcessorExecuteError("ACCESS DENIED: authentication is not configured!")
+
+        if not hmac.compare_digest(_token_digest(token), _token_digest(expected)):
             msg = "ACCESS DENIED: wrong token supplied!"
             LOGGER.error(msg)
-            LOGGER.debug(
-                f"WRONG INTERNAL API TOKEN '{token}' ('{type(token)}') != '{os.getenv(key)}' ('{type(os.getenv(key))}')"
-            )
             raise ProcessorExecuteError(msg)
+
+
+def _token_digest(value: str) -> bytes:
+    return hashlib.sha256(value.encode("utf-8")).digest()
 
 
 def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False) -> V1Job:
@@ -430,6 +441,12 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
         "mimetype": p.mimetype if p.mimetype else "application/json",
         **job_pod_spec.extra_annotations,
     }
+
+    if "parameters" in annotations:
+        try:
+            annotations["parameters"] = json.dumps(hide_secret_values(json.loads(annotations["parameters"])))
+        except json.JSONDecodeError:
+            LOGGER.error("can't mask parameters annotation, not valid json", exc_info=True)
 
     return V1Job(
         api_version="batch/v1",

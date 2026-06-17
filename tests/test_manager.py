@@ -27,6 +27,7 @@
 #
 # =================================================================
 import datetime
+import json
 import logging
 import os
 from unittest.mock import MagicMock, patch
@@ -44,6 +45,7 @@ from kubernetes.client import (
     V1ContainerStateTerminated,
     V1ContainerStateWaiting,
     V1ContainerStatus,
+    V1EnvVar,
     V1Job,
     V1JobCondition,
     V1JobList,
@@ -679,6 +681,62 @@ def test_executions_with_wrong_or_without_token_are_rejected(manager, processor)
         manager._execute_handler_async(processor, "", {})
     assert error.match("ACCESS DENIED: no token supplied!")
     del os.environ["PYGEOAPI_K8S_MANAGER_API_TOKEN"]
+
+
+def test_correct_token_is_accepted(manager):
+    os.environ["PYGEOAPI_K8S_MANAGER_API_TOKEN"] = "right-token"
+    assert manager._check_auth_token({"token": "right-token"}) is None
+    del os.environ["PYGEOAPI_K8S_MANAGER_API_TOKEN"]
+
+
+def test_missing_server_token_denies_access(manager):
+    os.environ.pop("PYGEOAPI_K8S_MANAGER_API_TOKEN", None)
+    with pytest.raises(ProcessorExecuteError) as error:
+        manager._check_auth_token({"token": "anything"})
+    assert error.match("ACCESS DENIED: authentication is not configured")
+
+
+def test_auth_token_is_stripped_before_job_creation(manager):
+    os.environ["PYGEOAPI_K8S_MANAGER_API_TOKEN"] = "right-token"
+    p = MagicMock(spec=KubernetesProcessor)
+    manager.batch_v1 = MagicMock()
+    with patch("pygeoapi_k8s_manager.manager.create_job_body") as mocked_create_job_body:
+        manager._execute_handler_async(p, "test-job-id", {"token": "right-token", "foo": "bar"})
+
+    passed_inputs = mocked_create_job_body.call_args.args[2]
+    assert "token" not in passed_inputs
+    assert passed_inputs["foo"] == "bar"
+    del os.environ["PYGEOAPI_K8S_MANAGER_API_TOKEN"]
+
+
+def test_create_job_body_masks_secret_values_in_parameters_annotation(job_id, process_id):
+    secret_params = {"name": "name-value", "api_key": "s3cr3t"}
+    p = MagicMock()
+    p.tolerations = None
+    p.mimetype = "application/json"
+    p.metadata = {"id": process_id}
+    p.create_job_pod_spec.return_value = KubernetesProcessor.JobPodSpec(
+        V1PodSpec(
+            containers=[
+                V1Container(
+                    name="test-container",
+                    env=[V1EnvVar(name="PYGEOAPI_K8S_MANAGER_INPUTS", value=json.dumps(secret_params))],
+                )
+            ]
+        ),
+        {"parameters": json.dumps(secret_params)},
+    )
+
+    job = create_job_body(p, job_id, secret_params, False)
+
+    persisted = json.loads(job.metadata.annotations[format_annotation_key("parameters")])
+    assert persisted["api_key"] == "*"
+    assert persisted["name"] == "name-value"
+
+    inputs_env = next(
+        env for env in job.spec.template.spec.containers[0].env if env.name == "PYGEOAPI_K8S_MANAGER_INPUTS"
+    )
+    assert json.loads(inputs_env.value)["api_key"] == "s3cr3t"
 
 
 def test_not_implemented_errors(processor):
