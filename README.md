@@ -18,6 +18,14 @@ An `ProcessorExecuteError` will be raised if not given and matching.
 The check for this token can be disabled by using the processor definition and setting the property `check_auth` to `False`.
 In addition, your processor can override the method `check_auth`.
 
+### Job Naming
+
+The environment variable `PYGEOAPI_K8S_MANAGER_JOB_NAME_PREFIX` (default `pygeoapi-job-`) defines the prefix of every job created by the manager.
+This prefix is also the identification criterion for the jobs that belong to the manager: listing, status, results and the log finalizer all match jobs by this prefix.
+It is read once at startup, so changing it does **not** take effect on-the-fly — a restart is required.
+Treat the prefix as a fixed, deploy-time setting that must stay stable for the lifetime of the jobs:
+changing it strands all jobs created with the previous prefix (they disappear from the job list, can no longer be retrieved, and are never picked up by the finalizer, so their pods can remain undeleted).
+
 ### Job Pod Security Context
 
 Every job pod the manager creates is hardened with a baseline `securityContext` by default:
@@ -203,6 +211,8 @@ For debugging, only the minio set-up is required.
 The configurable `securityContext` described above applies to the **spawned job pods**, not to the manager pod itself.
 The manager container is **not** hardened (`runAsNonRoot` / `readOnlyRootFilesystem` are not set), because the `geopython/pygeoapi` base image runs as root, binds the privileged port 80, and writes `/pygeoapi/local.openapi.yml` at startup.
 Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would therefore require base-image changes (a non-root UID, a high port, and writable mounts) and is out of scope for this project.
+
+### Commands
 
 **Build** the latest container image with docker using the following command:
 
