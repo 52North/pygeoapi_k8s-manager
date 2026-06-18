@@ -66,6 +66,7 @@ from kubernetes.client import (
     V1Toleration,
 )
 from kubernetes.client.rest import ApiException
+from kubernetes.config.config_exception import ConfigException
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
@@ -113,7 +114,7 @@ DEFAULT_CONTAINER_SECURITY_CONTEXT = {
 }
 
 
-def _security_context_from_env(env_key: str, default: dict) -> Optional[dict]:
+def _security_context_from_env(env_key: str, default: dict) -> dict | None:
     raw = os.getenv(env_key)
     if raw is None:
         return default
@@ -135,8 +136,8 @@ class KubernetesProcessor(BaseProcessor):
 
     def __init__(self, processor_def, process_metadata):
         super().__init__(processor_def, process_metadata)
-        self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
-        self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
+        self.mimetype = processor_def.get("mimetype", "application/json")
+        self.tolerations: list = processor_def.get("tolerations", None)
         self.is_check_auth = processor_def.get("check_auth")
         self.pod_security_context = processor_def.get(
             "pod_security_context",
@@ -212,9 +213,8 @@ class KubernetesManager(BaseManager):
         else:
             try:
                 k8s_config.load_kube_config()
-            except Exception as e:
-                LOGGER.error(e)
-                # load_kube_config might throw anything
+            except ConfigException as e:
+                LOGGER.debug(f"No usable kube config ('{e}'), falling back to in-cluster config.")
                 k8s_config.load_incluster_config()
 
             self.namespace = current_namespace()
@@ -300,7 +300,7 @@ class KubernetesManager(BaseManager):
             "numberMatched": number_matched,
         }
 
-    def get_job(self, job_id) -> Optional[JobDict]:
+    def get_job(self, job_id) -> JobDict | None:
         """
         Returns the actual output from a completed process
 
@@ -327,7 +327,7 @@ class KubernetesManager(BaseManager):
             else:
                 raise
 
-    def get_job_result(self, job_id) -> tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, job_id) -> tuple[Any | None, str | None]:
         """
         Returns the actual output from a completed process
 
@@ -364,10 +364,10 @@ class KubernetesManager(BaseManager):
         # another function that supports/expects k8s Processors only!
         job_id,
         data_dict: dict,
-        requested_outputs: Optional[dict] = None,
-        subscriber: Optional[Subscriber] = None,
+        requested_outputs: dict | None = None,
+        subscriber: Subscriber | None = None,
         requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
-    ) -> tuple[Optional[str], Optional[Any], JobStatus]:
+    ) -> tuple[str | None, Any | None, JobStatus]:
         """
         Synchronous execution handler
 
@@ -406,8 +406,8 @@ class KubernetesManager(BaseManager):
         p: KubernetesProcessor,
         job_id,
         data_dict,
-        requested_outputs: Optional[dict] = None,
-        subscriber: Optional[Subscriber] = None,
+        requested_outputs: dict | None = None,
+        subscriber: Subscriber | None = None,
         requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
     ) -> tuple[str, dict, JobStatus]:
         """
@@ -536,7 +536,7 @@ def add_metadata_env(pod_spec: V1PodSpec, job_id: str, process_id: str) -> V1Pod
     return pod_spec
 
 
-def job_message(namespace: str, job: V1Job) -> Optional[str]:
+def job_message(namespace: str, job: V1Job) -> str | None:
     if job_status_from_k8s(job.status) == JobStatus.accepted:
         # if a job is in state accepted, it means that it can run right now
         # and the events can show why that is
@@ -547,41 +547,40 @@ def job_message(namespace: str, job: V1Job) -> Optional[str]:
         if items := events.items:
             return items[-1].message
 
-    if pod := pod_for_job(namespace, job):
-        # everything can be null in kubernetes, even empty lists
-        if pod.status.container_statuses:
-            # we check only the state of the first container, because
-            # our job pods only have one container at the moment
-            state: V1ContainerState = pod.status.container_statuses[0].state
-            interesting_states = [s for s in (state.waiting, state.terminated) if s]
-            if interesting_states:
-                return ": ".join(
-                    filter(
-                        None,
-                        (
-                            interesting_states[0].reason,
-                            interesting_states[0].message,
-                        ),
-                    )
+    # everything can be null in kubernetes, even empty lists
+    if (pod := pod_for_job(namespace, job)) and pod.status.container_statuses:
+        # we check only the state of the first container, because
+        # our job pods only have one container at the moment
+        state: V1ContainerState = pod.status.container_statuses[0].state
+        interesting_states = [s for s in (state.waiting, state.terminated) if s]
+        if interesting_states:
+            return ": ".join(
+                filter(
+                    None,
+                    (
+                        interesting_states[0].reason,
+                        interesting_states[0].message,
+                    ),
                 )
+            )
     return None
 
 
-def pod_for_job_id(namespace: str, job_id: str) -> Optional[V1Pod]:
+def pod_for_job_id(namespace: str, job_id: str) -> V1Pod | None:
     label_selector = f"job-name={format_job_name(job_id)}"
     LOGGER.debug(f"label_selector: '{label_selector}'")
     pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     return next(iter(pods.items), None)
 
 
-def pod_for_job(namespace: str, job: V1Job) -> Optional[V1Pod]:
+def pod_for_job(namespace: str, job: V1Job) -> V1Pod | None:
     label_selector = ",".join(f"{key}={value}" for key, value in job.spec.selector.match_labels.items())
     pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
 
     return next(iter(pods.items), None)
 
 
-def job_from_k8s(job: V1Job, message: Optional[str]) -> JobDict:
+def job_from_k8s(job: V1Job, message: str | None) -> JobDict:
     """
     Converts k8s::job to pygeoapi::job
     """
@@ -648,7 +647,7 @@ def get_start_time_from_job(job: V1Job) -> str:
     return start_time
 
 
-def get_completion_time(job: V1Job) -> Optional[datetime]:
+def get_completion_time(job: V1Job) -> datetime | None:
     if job_status_from_k8s(job.status) == JobStatus.failed:
         # failed jobs have special completion time field
         return max(

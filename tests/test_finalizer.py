@@ -39,6 +39,7 @@ from kubernetes.client import (
     V1PodList,
     V1PodStatus,
 )
+from kubernetes.client.rest import ApiException
 
 from pygeoapi_k8s_manager.finalizer import KubernetesFinalizerController
 from pygeoapi_k8s_manager.util import format_log_finalizer
@@ -137,7 +138,7 @@ def test_get_job_name_from_pod(finalizer, pod_with_job_name):
 def test_get_job_name_returns_alternative_job_name(finalizer):
     test_pod = V1Pod(
         metadata=V1ObjectMeta(),
-        status=V1PodStatus(start_time=datetime.datetime(1970, 1, 1, 12, 00, 0, tzinfo=datetime.timezone.utc)),
+        status=V1PodStatus(start_time=datetime.datetime(1970, 1, 1, 12, 00, 0, tzinfo=datetime.UTC)),
     )
     assert finalizer.get_job_name_from(test_pod) == "pygeoapi-job-00000000-0000-0000-0000-00000000a8c0"
 
@@ -295,3 +296,20 @@ def test_handle_job_ended_event_does_not_fail_if_no_pod_found_for_job(finalizer)
 
     mocked_get_logs_for_pod.assert_not_called()
     mocked_upload_logs_to_s3.assert_not_called()
+
+
+def test_controller_loop_stops_on_forbidden(finalizer):
+    # a 401/403 from the watch is unrecoverable (RBAC) -> controller_loop must return, not loop forever
+    finalizer.resource_version = "rv"  # skip refresh_resource_version
+    watcher = MagicMock()
+    watcher.stream.side_effect = ApiException(status=403)
+
+    with (
+        patch("pygeoapi_k8s_manager.finalizer.FileLock"),
+        patch("pygeoapi_k8s_manager.finalizer.watch.Watch", return_value=watcher),
+        patch("pygeoapi_k8s_manager.finalizer.BatchV1Api"),
+        patch.object(finalizer, "check_s3_log_upload_variables"),
+    ):
+        finalizer.controller_loop()
+
+    watcher.stream.assert_called_once()

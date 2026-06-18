@@ -42,7 +42,8 @@ from kubernetes.client.models import (
     V1VolumeMount,
 )
 
-from pygeoapi_k8s_manager.manager import KubernetesProcessor
+from pygeoapi_k8s_manager.manager import AUTH_TOKEN_INPUT_KEY, KubernetesProcessor
+from pygeoapi_k8s_manager.util import validate_process_inputs
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,16 +78,14 @@ class GenericImageProcessor(KubernetesProcessor):
         super().__init__(processor_def, metadata)
 
         self.default_image: str = processor_def["default_image"]
-        self.command: str = processor_def["command"] if "command" in processor_def.keys() else None
-        self.image_pull_secrets: str = (
-            processor_def["image_pull_secrets"] if "image_pull_secrets" in processor_def.keys() else None
-        )
-        self.env: dict = processor_def["env"] if "env" in processor_def.keys() else {}
-        self.resources: dict = processor_def["resources"] if "resources" in processor_def.keys() else None
+        self.command: str = processor_def.get("command")
+        self.image_pull_secrets: str = processor_def.get("image_pull_secrets")
+        self.env: dict = processor_def.get("env", {})
+        self.resources: dict = processor_def.get("resources")
         self.mimetype: str = self._output_mimetype(processor_def["metadata"])
-        self.supports_outputs: bool = True if self.mimetype else False
-        self.storage: dict = processor_def["storage"] if "storage" in processor_def.keys() else None
-        self.init_containers = processor_def["init_containers"] if "init_containers" in processor_def else None
+        self.supports_outputs: bool = bool(self.mimetype)
+        self.storage: dict = processor_def.get("storage")
+        self.init_containers = processor_def.get("init_containers")
 
     def _output_mimetype(self, metadata: dict) -> str:
         """
@@ -96,7 +95,7 @@ class GenericImageProcessor(KubernetesProcessor):
 
         :returns mimetype: None if no outputs, outputs::schema::contentMediaType if one output, else application/json
         """
-        if "outputs" not in metadata.keys() or len(metadata["outputs"]) == 0:
+        if "outputs" not in metadata or len(metadata["outputs"]) == 0:
             return None
         elif len(metadata["outputs"]) == 1:
             return next(iter(metadata["outputs"].values()))["schema"]["contentMediaType"]
@@ -133,7 +132,7 @@ class GenericImageProcessor(KubernetesProcessor):
             return None
         k8s_env = []
         for env_variable in self.env:
-            if "secret_name" in env_variable.keys():
+            if "secret_name" in env_variable:
                 k8s_env.append(
                     V1EnvVar(
                         name=env_variable["name"],
@@ -179,7 +178,7 @@ class GenericImageProcessor(KubernetesProcessor):
         k8s_volumes = []
         for volume in self.storage:
             # support for https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
-            if "empty_dir" in volume.keys():
+            if "empty_dir" in volume:
                 k8s_volumes.append(
                     V1Volume(
                         name=volume["name"],
@@ -221,22 +220,21 @@ class GenericImageProcessor(KubernetesProcessor):
             k8s_init_containers.append(
                 k8s_client.V1Container(
                     name=init_container["name"],
-                    image_pull_policy=init_container["imagePullPolicy"]
-                    if "imagePullPolicy" in init_container
-                    else None,
-                    image=init_container["image"] if "image" in init_container else None,
-                    command=init_container["command"] if "command" in init_container else None,
-                    args=init_container["args"] if "args" in init_container else None,
-                    env=init_container["env"] if "env" in init_container else None,
-                    volume_mounts=init_container["volumeMounts"] if "volumeMounts" in init_container else None,
-                    resources=init_container["resources"] if "resources" in init_container else None,
+                    image_pull_policy=init_container.get("imagePullPolicy", None),
+                    image=init_container.get("image", None),
+                    command=init_container.get("command", None),
+                    args=init_container.get("args", None),
+                    env=init_container.get("env", None),
+                    volume_mounts=init_container.get("volumeMounts", None),
+                    resources=init_container.get("resources", None),
                 ),
             )
         return k8s_init_containers
 
     def create_job_pod_spec(self, data: dict, job_name: str) -> KubernetesProcessor.JobPodSpec:
         LOGGER.debug("Starting job with data %s", data)
-        # TODO add input validation using data and self.metadata["inputs"]
+        # the auth token is a control-plane field (stripped before job creation), not a process input
+        validate_process_inputs(data, self.metadata.get("inputs", {}), skip_keys=frozenset({AUTH_TOKEN_INPUT_KEY}))
 
         extra_podspec = {}
 

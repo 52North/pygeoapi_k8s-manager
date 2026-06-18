@@ -126,13 +126,9 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         super().__init__(processor_def, PROCESS_METADATA)
 
         self.supports_outputs = True
-        self.default_image: str = (
-            processor_def["default_image"] if "default_image" in processor_def.keys() else "busybox"
-        )
-        self.command: str = processor_def["command"] if "command" in processor_def.keys() else None
-        self.image_pull_secrets: str = (
-            processor_def["image_pull_secrets"] if "image_pull_secrets" in processor_def.keys() else None
-        )
+        self.default_image: str = processor_def.get("default_image", "busybox")
+        self.command: str = processor_def.get("command")
+        self.image_pull_secrets: str = processor_def.get("image_pull_secrets")
 
     def check_auth(self):
         return False

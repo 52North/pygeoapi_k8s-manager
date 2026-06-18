@@ -81,6 +81,27 @@ def test_create_job_pod_spec(processor, data):
     assert container.name == "hello-world-k8s"
 
 
+@pytest.fixture()
+def processor_without_command() -> HelloWorldK8sProcessor:
+    return HelloWorldK8sProcessor(
+        processor_def={
+            "name": "pygeoapi_k8s_manager.process.HelloWorldK8sProcessor",
+            "default_image": "test-image",
+        }
+    )
+
+
+def test_create_job_pod_spec_without_command(processor_without_command, data):
+    assert processor_without_command.command is None
+
+    job_pod_spec = processor_without_command.create_job_pod_spec(data=data, job_name="test-job-name")
+
+    container = job_pod_spec.pod_spec.containers[0]
+    assert container.command[:2] == ["/bin/sh", "-c"]
+    # without a configured command the script is just the result echo (no prepended prefix)
+    assert container.command[2].startswith("echo PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:")
+
+
 def test_raise_error_on_wrong_input(processor):
     with pytest.raises(ProcessorClientError) as error:
         processor.create_job_pod_spec(data={}, job_name=None)

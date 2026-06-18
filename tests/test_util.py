@@ -40,6 +40,7 @@ from kubernetes.client.models.v1_job_status import V1JobStatus
 from pygeoapi.util import JobStatus
 
 from pygeoapi_k8s_manager.util import (
+    ProcessorClientError,
     current_namespace,
     format_annotation_key,
     format_job_name,
@@ -49,6 +50,7 @@ from pygeoapi_k8s_manager.util import (
     job_status_from_k8s,
     now_str,
     parse_annotation_key,
+    validate_process_inputs,
 )
 
 
@@ -62,7 +64,7 @@ def test_format_annotation_key_raises_error_on_too_long_key():
     assert error.type is ValueError
     assert error.match(
         "Specified key 'too-------------------------------------long-test-annotation-key' is longer than allowed API limit 63: '64'"
-    )  # noqa: E501
+    )
 
 
 def test_format_annotation_key_with_empty_string():
@@ -171,3 +173,54 @@ def test_hide_secret_values():
 def test_now_str():
     with time_machine.travel(datetime.datetime(2025, 1, 19, 15, 42, 1)):
         assert now_str() == "2025-01-19T15:42:01.000000Z"
+
+
+@pytest.fixture()
+def declared_inputs() -> dict:
+    return {
+        "name": {"schema": {"type": "string"}, "minOccurs": 1, "maxOccurs": 1},
+        "count": {"schema": {"type": "integer"}, "minOccurs": 0},
+        "flag": {"schema": {"type": "boolean"}, "minOccurs": 0},
+        "tags": {"schema": {"type": "string"}, "minOccurs": 0, "maxOccurs": 5},
+        "token": {"schema": {"type": "string"}, "minOccurs": 1},
+    }
+
+
+def test_validate_process_inputs_accepts_valid(declared_inputs):
+    validate_process_inputs(
+        {"name": "x", "count": 3, "flag": True, "tags": ["a", "b"]},
+        declared_inputs,
+        skip_keys=frozenset({"token"}),
+    )
+
+
+def test_validate_process_inputs_missing_required_raises(declared_inputs):
+    with pytest.raises(ProcessorClientError) as error:
+        validate_process_inputs({"count": 3}, declared_inputs, skip_keys=frozenset({"token"}))
+    assert error.match("Missing required input: 'name'")
+
+
+def test_validate_process_inputs_skip_keys_skips_required(declared_inputs):
+    # 'token' is required but skipped -> no error despite being absent
+    validate_process_inputs({"name": "x"}, declared_inputs, skip_keys=frozenset({"token"}))
+
+
+def test_validate_process_inputs_wrong_type_raises(declared_inputs):
+    with pytest.raises(ProcessorClientError) as error:
+        validate_process_inputs({"name": 42}, declared_inputs, skip_keys=frozenset({"token"}))
+    assert error.match(re.escape("Invalid type for input 'name': expected 'string', got 'int'"))
+
+
+def test_validate_process_inputs_boolean_is_not_integer(declared_inputs):
+    with pytest.raises(ProcessorClientError):
+        validate_process_inputs({"name": "x", "count": True}, declared_inputs, skip_keys=frozenset({"token"}))
+
+
+def test_validate_process_inputs_max_occurs_list(declared_inputs):
+    validate_process_inputs({"name": "x", "tags": ["a", "b", "c"]}, declared_inputs, skip_keys=frozenset({"token"}))
+    with pytest.raises(ProcessorClientError):
+        validate_process_inputs({"name": "x", "tags": ["a", 1]}, declared_inputs, skip_keys=frozenset({"token"}))
+
+
+def test_validate_process_inputs_allows_undeclared_keys(declared_inputs):
+    validate_process_inputs({"name": "x", "extra": "anything"}, declared_inputs, skip_keys=frozenset({"token"}))

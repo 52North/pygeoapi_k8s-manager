@@ -178,7 +178,7 @@ def k8s_job_4_events():
             succeeded=0,
             failed=0,
             active=0,
-            completion_time=datetime.datetime.now(tz=datetime.timezone.utc),
+            completion_time=datetime.datetime.now(tz=datetime.UTC),
         ),
     )
 
@@ -277,11 +277,13 @@ def test_manager_get_jobs_limit(manager, k8s_job_list, k8s_pod_list, process_id)
 
 
 def test_manager_get_job_result_raises_error_on_no_job_returned(manager, process_id):
-    with pytest.raises(JobNotFoundError) as error:
-        with patch.object(
+    with (
+        pytest.raises(JobNotFoundError) as error,
+        patch.object(
             KubernetesManager, "get_k8s_job", side_effect=JobNotFoundError(f"No job with id '{process_id}' found!")
-        ):
-            manager.get_job_result(process_id)
+        ),
+    ):
+        manager.get_job_result(process_id)
     assert error.type is JobNotFoundError
     assert error.match(f"No job with id '{process_id}' found!")
 

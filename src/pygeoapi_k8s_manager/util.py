@@ -35,7 +35,7 @@ import logging
 import os
 import re
 from http import HTTPStatus
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from kubernetes.client import (
     CoreV1Api,
@@ -72,7 +72,7 @@ def format_log_finalizer() -> str:
     return f"{_ANNOTATIONS_PREFIX}finalizer-log-retrieval"
 
 
-def parse_annotation_key(key: str) -> Optional[str]:
+def parse_annotation_key(key: str) -> str | None:
     matched = re.match(f"^{_ANNOTATIONS_PREFIX}(.+)", key)
     return matched.group(1) if matched else None
 
@@ -119,21 +119,16 @@ def job_status_from_k8s(status: V1JobStatus) -> JobStatus:
         return JobStatus.accepted
 
 
-JobDict = TypedDict(
-    "JobDict",
-    {
-        "identifier": str,
-        "message": str,
-        "parameters": dict,
-        "process_id": str,
-        "status": str,
-        "created": Optional[str],
-        "started": Optional[str],
-        "updated": Optional[str],
-        "finished": Optional[str],
-    },
-    total=False,
-)
+class JobDict(TypedDict, total=False):
+    identifier: str
+    message: str
+    parameters: dict
+    process_id: str
+    status: str
+    created: str | None
+    started: str | None
+    updated: str | None
+    finished: str | None
 
 
 def hide_secret_values(dictionary: dict[str, str]) -> dict[str, str]:
@@ -144,11 +139,69 @@ def hide_secret_values(dictionary: dict[str, str]) -> dict[str, str]:
 
 
 def now_str() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).strftime(DATETIME_FORMAT)
+    return datetime.datetime.now(datetime.UTC).strftime(DATETIME_FORMAT)
 
 
 class ProcessorClientError(ProcessorExecuteError):
     http_status_code = HTTPStatus.BAD_REQUEST
+
+
+def _value_matches_schema_type(value, schema_type: str) -> bool:
+    # bool is a subclass of int, so check it before integer/number
+    if schema_type == "boolean":
+        return isinstance(value, bool)
+    if schema_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if schema_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if schema_type == "string":
+        return isinstance(value, str)
+    if schema_type == "object":
+        return isinstance(value, dict)
+    if schema_type == "array":
+        return isinstance(value, list)
+    # unknown/undeclared type -> do not enforce
+    return True
+
+
+def validate_process_inputs(
+    data: dict | None,
+    declared_inputs: dict,
+    skip_keys: frozenset[str] = frozenset(),
+) -> None:
+    """
+    Validate execution inputs against the process input declarations.
+
+    For every declared input (except those in `skip_keys`):
+    - if it is required (`minOccurs` >= 1, default 1) it MUST be present in `data`;
+    - if present, its value MUST match the declared `schema.type`; for `maxOccurs` > 1
+      a list whose items each match the type is accepted.
+
+    Undeclared keys in `data` are allowed (the GenericImageProcessor forwards arbitrary
+    inputs to the job container).
+    Raises `ProcessorClientError` on the first violation.
+    """
+    data = data or {}
+    for name, declaration in declared_inputs.items():
+        if name in skip_keys:
+            continue
+        if name not in data:
+            if declaration.get("minOccurs", 1) >= 1:
+                raise ProcessorClientError(user_msg=f"Missing required input: '{name}'")
+            continue
+        schema_type = declaration.get("schema", {}).get("type")
+        if schema_type is None:
+            continue
+        value = data[name]
+        if declaration.get("maxOccurs", 1) != 1 and isinstance(value, list) and schema_type != "array":
+            items = value
+        else:
+            items = [value]
+        for item in items:
+            if not _value_matches_schema_type(item, schema_type):
+                raise ProcessorClientError(
+                    user_msg=(f"Invalid type for input '{name}': expected '{schema_type}', got '{type(item).__name__}'")
+                )
 
 
 def get_logs_for_pod(
