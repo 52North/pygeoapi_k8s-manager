@@ -34,4 +34,4 @@ jobs:
     -
       name: run tests
       run: |
-        uv run pytest tests/
+        uv run pytest tests/ --cov=src/pygeoapi_k8s_manager --cov-report=term-missing

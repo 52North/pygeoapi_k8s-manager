@@ -81,7 +81,7 @@ jobs:
     -
       name: Run tests
       run: |
-        uv run pytest tests/
+        uv run pytest tests/ --cov=src/pygeoapi_k8s_manager --cov-report=term-missing
     -
       name: Build Docker image (local for scanning)
       uses: docker/build-push-action@v7
