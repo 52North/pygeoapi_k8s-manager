@@ -127,7 +127,9 @@ jobs:
       with:
         name: trivy-report-full
         path: trivy-report-full.txt
-        retention-days: 180
+        # current allowed maximum in this repository: 30 days
+        # requested: 180
+        retention-days: 30
         if-no-files-found: warn
     -
       name: Run trivy vulnerability scanner
