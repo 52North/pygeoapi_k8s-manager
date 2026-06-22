@@ -196,7 +196,7 @@ Files to adjust:
 - **pygeoapi-k8s-manager**
 
   ```shell
-  VERSION=0.26
+  VERSION=0.27
   sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
   sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
   sed -i -E "s/^([[:space:]]*)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
@@ -240,7 +240,7 @@ Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would theref
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.26
+VERSION=0.27
 PYGEOAPI_VERSION=0.23.4
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \

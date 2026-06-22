@@ -777,7 +777,7 @@ wheels = [
 
 [[package]]
 name = "pygeoapi-k8s-manager"
-version = "0.26"
+version = "0.27"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
