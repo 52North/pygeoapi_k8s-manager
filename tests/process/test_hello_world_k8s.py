@@ -26,7 +26,9 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+import json
 import re
+import shlex
 
 import pytest
 
@@ -119,3 +121,11 @@ def test_is_not_check_auth(processor):
 
     processor.is_check_auth = True
     assert not processor.check_auth()
+
+
+def test_create_job_pod_spec_without_message(processor):
+    job_pod_spec = processor.create_job_pod_spec(data={"name": "test-name", "message": None}, job_name="j")
+
+    assert json.loads(job_pod_spec.extra_annotations["parameters"]) == {"name": "test-name", "message": None}
+    command = job_pod_spec.pod_spec.containers[0].command[2]
+    assert shlex.quote(json.dumps({"result": "Hello 'test-name'!"})) in command

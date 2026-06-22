@@ -313,3 +313,28 @@ def test_controller_loop_stops_on_forbidden(finalizer):
         finalizer.controller_loop()
 
     watcher.stream.assert_called_once()
+
+
+def test_handle_job_ended_event_happy_path_documents_and_removes_finalizer(finalizer):
+    finalizer.is_upload_logs_to_s3 = True
+    pod = MagicMock()
+    pod.metadata.name = "test-pod"
+    pod.metadata.namespace = "test-namespace"
+    pod.metadata.finalizers = [format_log_finalizer()]
+    pod.metadata.labels = {"job-name": "pygeoapi-job-x"}
+    k8s_core_api = MagicMock()
+    k8s_core_api.list_namespaced_pod.return_value = V1PodList(items=[pod])
+    job = MagicMock()
+    job.metadata.name = "pygeoapi-job-x"
+
+    with (
+        patch("pygeoapi_k8s_manager.finalizer.get_logs_for_pod", return_value="some logs"),
+        patch.object(finalizer, "add_result_annotations_to_job") as mocked_add_annotations,
+        patch.object(finalizer, "upload_logs_to_s3") as mocked_upload,
+        patch.object(finalizer, "remove_finalizer") as mocked_remove,
+    ):
+        finalizer.handle_job_ended_event(job=job, k8s_core_api=k8s_core_api, k8s_batch_api=MagicMock())
+
+    mocked_add_annotations.assert_called_once()
+    mocked_upload.assert_called_once()
+    mocked_remove.assert_called_once()

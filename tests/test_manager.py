@@ -60,7 +60,9 @@ from kubernetes.client import (
     V1PodStatus,
     V1Toleration,
 )
+from kubernetes.client.rest import ApiException
 from pygeoapi.process.base import BaseProcessor, JobNotFoundError, JobResultNotFoundError, ProcessorExecuteError
+from pygeoapi.util import JobStatus
 
 from pygeoapi_k8s_manager.manager import (
     DEFAULT_CONTAINER_SECURITY_CONTEXT,
@@ -804,3 +806,125 @@ def test_not_implemented_errors(processor):
     with pytest.raises(NotImplementedError) as error:
         processor.execute()
     assert error.match("Kubernetes Processes can't be executed directly, use KubernetesManager")
+
+
+def test_get_k8s_job_not_found_raises(manager, job_id):
+    manager.batch_v1 = MagicMock()
+    manager.batch_v1.read_namespaced_job.side_effect = ApiException(status=404)
+    with pytest.raises(JobNotFoundError):
+        manager.get_k8s_job(job_id)
+
+
+def test_get_k8s_job_other_api_error_is_re_raised(manager, job_id):
+    manager.batch_v1 = MagicMock()
+    manager.batch_v1.read_namespaced_job.side_effect = ApiException(status=500)
+    with pytest.raises(ApiException):
+        manager.get_k8s_job(job_id)
+
+
+def test_execute_handler_async_creates_job(manager, testing_processor, job_id):
+    testing_processor.is_check_auth = False
+    manager.batch_v1 = MagicMock()
+
+    result = manager._execute_handler_async(testing_processor, job_id, {})
+
+    manager.batch_v1.create_namespaced_job.assert_called_once()
+    created_body = manager.batch_v1.create_namespaced_job.call_args.kwargs["body"]
+    assert created_body.metadata.name == format_job_name(job_id)
+    assert created_body.metadata.annotations[format_annotation_key("identifier")] == job_id
+    assert result == ("application/json", {}, JobStatus.accepted)
+
+
+def test_execute_handler_sync_vanished_job(manager, job_id, mimetype):
+    with (
+        patch.object(manager, "_execute_handler_async"),
+        patch.object(manager, "get_job", return_value=None),
+        patch.object(manager, "get_job_result", return_value=(mimetype, "result")),
+        patch("pygeoapi_k8s_manager.manager.time.sleep"),
+    ):
+        result = manager._execute_handler_sync(MagicMock(), job_id, {})
+
+    assert result == (mimetype, "result", JobStatus.failed)
+
+
+def test_execute_handler_sync_runs_until_successful(manager, job_id, mimetype):
+    with (
+        patch.object(manager, "_execute_handler_async"),
+        patch.object(manager, "get_job", side_effect=[{"status": "running"}, {"status": "successful"}]),
+        patch.object(manager, "get_job_result", return_value=(mimetype, "result")),
+        patch("pygeoapi_k8s_manager.manager.time.sleep"),
+    ):
+        result = manager._execute_handler_sync(MagicMock(), job_id, {})
+
+    assert result == (mimetype, "result", JobStatus.successful)
+
+
+def test_get_job_result_parses_application_json(manager, process_id):
+    k8s_job = MagicMock()
+    k8s_job.metadata.annotations = {
+        format_annotation_key("result-mimetype"): "application/json",
+        format_annotation_key("result-value"): '{"a": 1}',
+    }
+    with (
+        patch.object(KubernetesManager, "get_k8s_job", return_value=k8s_job),
+        patch("pygeoapi_k8s_manager.manager.job_message", return_value=None),
+        patch("pygeoapi_k8s_manager.manager.job_from_k8s", return_value={"status": "successful"}),
+    ):
+        mimetype, result = manager.get_job_result(process_id)
+
+    assert mimetype == "application/json"
+    assert result == {"a": 1}
+
+
+def test_get_job_result_missing_result_annotations_raise(manager, process_id):
+    k8s_job = MagicMock()
+    k8s_job.metadata.annotations = {
+        format_annotation_key("result-mimetype"): None,
+        format_annotation_key("result-value"): None,
+    }
+    with (
+        patch.object(KubernetesManager, "get_k8s_job", return_value=k8s_job),
+        patch("pygeoapi_k8s_manager.manager.job_message", return_value=None),
+        patch("pygeoapi_k8s_manager.manager.job_from_k8s", return_value={"status": "successful"}),
+        pytest.raises(JobResultNotFoundError),
+    ):
+        manager.get_job_result(process_id)
+
+
+def test_job_from_k8s_invalid_parameters_json_does_not_crash():
+    job = V1Job(
+        metadata=V1ObjectMeta(
+            name=format_job_name("x"),
+            annotations={
+                format_annotation_key("identifier"): "id-x",
+                format_annotation_key("parameters"): "not-json{",
+            },
+        ),
+        status=V1JobStatus(
+            succeeded=1,
+            completion_time=datetime.datetime.fromisoformat("2025-01-01T00:00:00+00:00"),
+        ),
+        spec=V1JobSpec(
+            selector=V1LabelSelector(match_labels={"k": "v"}),
+            template=V1JobTemplateSpec(),
+        ),
+    )
+
+    result = job_from_k8s(job, "msg")
+
+    assert result["status"] == "successful"
+    assert result["parameters"] == "not-json{"
+
+
+def test_create_job_body_invalid_parameters_json_is_left_unmasked(job_id, process_id):
+    p = MagicMock()
+    p.tolerations = None
+    p.mimetype = "application/json"
+    p.metadata = {"id": process_id}
+    p.create_job_pod_spec.return_value = KubernetesProcessor.JobPodSpec(
+        V1PodSpec(containers=[V1Container(name="c")]), {"parameters": "not-json{"}
+    )
+
+    job = create_job_body(p, job_id, {}, False)
+
+    assert job.metadata.annotations[format_annotation_key("parameters")] == "not-json{"

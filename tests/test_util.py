@@ -30,6 +30,7 @@ import datetime
 import os
 import re
 from unittest.mock import (
+    MagicMock,
     mock_open,
     patch,
 )
@@ -44,6 +45,7 @@ from pygeoapi_k8s_manager.util import (
     current_namespace,
     format_annotation_key,
     format_job_name,
+    get_logs_for_pod,
     hide_secret_values,
     is_k8s_job_name,
     job_id_from_job_name,
@@ -224,3 +226,38 @@ def test_validate_process_inputs_max_occurs_list(declared_inputs):
 
 def test_validate_process_inputs_allows_undeclared_keys(declared_inputs):
     validate_process_inputs({"name": "x", "extra": "anything"}, declared_inputs, skip_keys=frozenset({"token"}))
+
+
+def _container(name):
+    container = MagicMock()
+    container.name = name
+    return container
+
+
+def test_get_logs_for_pod_collects_init_and_main_containers():
+    pod = MagicMock()
+    pod.metadata.name = "test-pod"
+    pod.metadata.namespace = "test-ns"
+    pod.spec.init_containers = [_container("init-0")]
+    pod.spec.containers = [_container("main-0")]
+    k8s_core_api = MagicMock()
+    k8s_core_api.read_namespaced_pod_log.return_value = "log-content"
+
+    logs = get_logs_for_pod(pod, k8s_core_api)
+
+    assert "init-0" in logs
+    assert "main-0" in logs
+    assert "log-content" in logs
+    assert k8s_core_api.read_namespaced_pod_log.call_count == 2
+
+
+def test_get_logs_for_pod_returns_none_when_no_logs():
+    pod = MagicMock()
+    pod.metadata.name = "test-pod"
+    pod.metadata.namespace = "test-ns"
+    pod.spec.init_containers = None
+    pod.spec.containers = [_container("main-0")]
+    k8s_core_api = MagicMock()
+    k8s_core_api.read_namespaced_pod_log.return_value = None
+
+    assert get_logs_for_pod(pod, k8s_core_api) is None
