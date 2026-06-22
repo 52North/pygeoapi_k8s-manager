@@ -32,7 +32,7 @@ jobs:
     steps:
     -
       name: Checkout Repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     -
       name: Declare variables and resolve Tag
       id: vars
