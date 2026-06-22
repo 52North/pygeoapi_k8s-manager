@@ -203,6 +203,24 @@ Files to adjust:
   uv sync --upgrade
   ```
 
+### Kubernetes client library version
+
+The Python `kubernetes` client library version is managed as a dependency pin in `pyproject.toml` (e.g. `"kubernetes>=33,<34"`) together with `uv.lock`.
+It can be retrieved via `<pygeoapi-context-path>/static/info.txt` (line `kubernetes client: …`).
+
+To adjust it, either upgrade within the current pin range:
+
+```shell
+uv lock --upgrade-package kubernetes
+```
+
+or move the pin to a new client series and re-lock (example: series 33 → 34):
+
+```shell
+sed -i -E 's/"kubernetes>=[0-9]+,<[0-9]+"/"kubernetes>=34,<35"/' pyproject.toml && \
+uv lock
+```
+
 ### Debugging with vscode
 
 The project come with vscode debug launch configuration, that works with the kind cluster configuration.

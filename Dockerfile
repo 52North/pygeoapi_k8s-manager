@@ -58,6 +58,7 @@ RUN touch "${INFO_FILE}" \
  && echo "git branch: $GIT_BRANCH" >> "$INFO_FILE" \
  && echo "git tag: $GIT_TAG" >> "$INFO_FILE" \
  && echo "pygeoapi: $(/venv/bin/pygeoapi --version)" >> "$INFO_FILE" \
+ && echo "kubernetes client: $(/venv/bin/python -c 'from importlib.metadata import version; print(version("kubernetes"))')" >> "$INFO_FILE" \
  && cat "${INFO_FILE}"
 
 RUN sed -i '/{{ version }}/a \
