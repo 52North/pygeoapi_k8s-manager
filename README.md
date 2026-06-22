@@ -164,6 +164,11 @@ The project specific kind set-up is outlined in [/k8s-kind/](./k8s-kind/README.m
 
 - Add normal dependency: `uv add dependency`
 - Add `dev` dependency: `uv add --dev dependency`
+- Check if `uv.lock` is up-to-date: `uv lock --check`
+- Sync `pyproject.toml` and `uv.lock`: `uv lock`
+- Upgrade all dependencies to latest version `uv lock --upgrade`
+- Upgrade one specific package: `uv lock --upgrade-package <name>`
+- Upgrade local venv: `uv sync`
 
 The docker image installs the project's `[project].dependencies`; pygeoapi itself is provided by the base image and therefore does not need to be reinstalled.
 
