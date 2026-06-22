@@ -377,7 +377,7 @@ The developments are based on [pygeoapi-kubernetes-papermill](https://github.com
 ## Funding
 
 The development of the "pygeoapi - kubernetes manager" implementation was supported by several organizations and projects.
-Among other we would like to thank the following organizations and projects
+We would like to thank the following organizations and projects, among others:
 
 | Project/Logo | Description |
 | :---: | :--- |
