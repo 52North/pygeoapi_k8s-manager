@@ -249,6 +249,7 @@ docker build \
   -t "${REGISTRY}/${IMAGE}:latest" \
   -t "${REGISTRY}/${IMAGE}:${VERSION}" \
   --build-arg VERSION="$VERSION" \
+  --build-arg PYGEOAPI_VERSION="$PYGEOAPI_VERSION" \
   --build-arg BUILD_DATE=$(date -u --iso-8601=seconds) \
   --build-arg GIT_COMMIT=$(git rev-parse --short=20 -q --verify HEAD) \
   --build-arg GIT_TAG=$(git describe --tags) \
