@@ -71,10 +71,12 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              sleep 10;
               aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID;
               aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY;
-              aws configure set default.region us-east-1;
+              until aws --endpoint-url=http://garage:9000 s3 ls > /dev/null 2>&1; do
+                echo "Waiting for Garage to become available...";
+                sleep 2;
+              done;
               aws --endpoint-url=http://garage:9000 s3 mb s3://pygeoapi || true;
           envFrom:
             - secretRef:
