@@ -29,8 +29,6 @@
 import datetime
 import os
 from unittest.mock import MagicMock, patch
-from unittest.mock import MagicMock, ANY
-
 import pytest
 from boto3.session import Session
 from botocore.exceptions import ClientError
