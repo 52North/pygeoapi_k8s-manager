@@ -18,6 +18,54 @@ An `ProcessorExecuteError` will be raised if not given and matching.
 The check for this token can be disabled by using the processor definition and setting the property `check_auth` to `False`.
 In addition, your processor can override the method `check_auth`.
 
+### Job Naming
+
+The environment variable `PYGEOAPI_K8S_MANAGER_JOB_NAME_PREFIX` (default `pygeoapi-job-`) defines the prefix of every job created by the manager.
+This prefix is also the identification criterion for the jobs that belong to the manager: listing, status, results and the log finalizer all match jobs by this prefix.
+It is read once at startup, so changing it does **not** take effect on-the-fly — a restart is required.
+Treat the prefix as a fixed, deploy-time setting that must stay stable for the lifetime of the jobs:
+changing it strands all jobs created with the previous prefix (they disappear from the job list, can no longer be retrieved, and are never picked up by the finalizer, so their pods can remain undeleted).
+
+### Job Pod Security Context
+
+Every job pod the manager creates is hardened with a baseline `securityContext` by default:
+
+- pod-level: `seccompProfile.type: RuntimeDefault`
+- container-level (applied to all containers and init containers): `allowPrivilegeEscalation: false`, `capabilities.drop: ["ALL"]`
+
+This baseline hardens most workloads without breaking arbitrary images.
+The context can be adjusted on two levels; precedence is **`processor_def` > environment variable > baseline default**.
+
+Globally, the context can be set via environment variables as JSON using the Kubernetes API field names (i.e. `camelCase`).
+Set a variable to `off` (or `none`) to disable that context.
+If a variable contains invalid JSON, no job is started and a `ProcessorExecuteError` is raised — the manager never silently falls back to a weaker context.
+
+| Environment variable                                  | Description                             |
+| ----------------------------------------------------- | --------------------------------------- |
+| `PYGEOAPI_K8S_MANAGER_JOB_POD_SECURITY_CONTEXT`       | Pod-level `securityContext` as JSON.    |
+| `PYGEOAPI_K8S_MANAGER_JOB_CONTAINER_SECURITY_CONTEXT` | Container-level `securityContext` JSON. |
+
+Per process, the context can be set in the processor definition (`pygeoapi-config.yaml`) using the keys `pod_security_context` and `container_security_context`.
+Setting a key to `null` disables that context for the process.
+
+The following recommended hardened ("restricted") example may require adjustments for arbitrary images, e.g. a writable root filesystem or a specific UID.
+
+```yaml
+    processor:
+      name: pygeoapi_k8s_manager.process.GenericImageProcessor
+      pod_security_context:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      container_security_context:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+```
+
 ## k8s Configuration Requirements
 
 Required RBAC rules:
@@ -86,18 +134,18 @@ server:
 **environment variables available**:
 
 | **name** | **comment** |
-|---|---|
+| --- | --- |
 | `PYGEOAPI_JOB_ID` | Each container (normal and init) of the job pod will receive this variable containing the pygeoapi provided id of the current job, e.g. `99755242-31af-11f0-80bd-0255ac10006c`. |
 
 **environment variables to configure**:
 
-| **name** | **comment** |
-|---|---|
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT` | Endpoint of the bucket hosting service, similar to `FSSPEC_S3_ENDPOINT_URL`, e.g. OTC: `https://obs.eu-de.otc.t-systems.com` |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY` | The access key with permission to upload files to the given "path", similar to `FSSPEC_S3_KEY` |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET` | The access key secret for the key, similar to `FSSPEC_S3_SECRET`. |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME` | Name of the bucket. |
-| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX` | The "folder" the log files will be uploaded to. It MUST end with an `/`. |
+| **name**                                            | **comment**                                                                                                                  |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT`    | Endpoint of the bucket hosting service, similar to `FSSPEC_S3_ENDPOINT_URL`, e.g. OTC: `https://obs.eu-de.otc.t-systems.com` |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY`         | The access key with permission to upload files to the given "path", similar to `FSSPEC_S3_KEY`                               |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET`      | The access key secret for the key, similar to `FSSPEC_S3_SECRET`.                                                            |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME`        | Name of the bucket.                                                                                                          |
+| `PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX` | The "folder" the log files will be uploaded to. It MUST end with an `/`.                                                     |
 
 Ensure, that the bucket is **not publicly** available in the internet, because the logs might leak confidential information and should be consulted only by technical personnel.
 
@@ -116,9 +164,62 @@ The project specific kind set-up is outlined in [/k8s-kind/](./k8s-kind/README.m
 
 - Add normal dependency: `uv add dependency`
 - Add `dev` dependency: `uv add --dev dependency`
-- Add `docker` dependency: `uv add --group docker dependency`
+- Check if `uv.lock` is up-to-date: `uv lock --check`
+- Sync `pyproject.toml` and `uv.lock`: `uv lock`
+- Upgrade all dependencies to latest version `uv lock --upgrade`
+- Upgrade one specific package: `uv lock --upgrade-package <name>`
+- Upgrade local venv: `uv sync`
 
-The docker dependency group is used during building the docker image, which is based on pygeoapi, hence no pygeoapi package needs to be installed.
+The docker image installs the project's `[project].dependencies`; pygeoapi itself is provided by the base image and therefore does not need to be reinstalled.
+
+### Increase pygeoapi/project version
+
+Files to adjust:
+
+- `Dockerfile`
+- `.github/workflows/build-pipeline.yaml`
+- `pyproject.toml`
+- `uv.lock`
+- `README.md`
+
+- **pygeoapi**
+
+  ```shell
+  PYGEOAPI_VERSION=0.23.4
+  sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
+  sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
+  sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
+  sed -i -E "s/^([[:space:]]*)PYGEOAPI_VERSION=.*/\1PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" README.md && \
+  uv sync --upgrade
+  ```
+
+- **pygeoapi-k8s-manager**
+
+  ```shell
+  VERSION=0.27
+  sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
+  sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
+  sed -i -E "s/^([[:space:]]*)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
+  uv sync --upgrade
+  ```
+
+### Kubernetes client library version
+
+The Python `kubernetes` client library version is managed as a dependency pin in `pyproject.toml` (e.g. `"kubernetes>=33,<34"`) together with `uv.lock`.
+It can be retrieved via `<pygeoapi-context-path>/static/info.txt` (line `kubernetes client: …`).
+
+To adjust it, either upgrade within the current pin range:
+
+```shell
+uv lock --upgrade-package kubernetes
+```
+
+or move the pin to a new client series and re-lock (example: series 33 → 34):
+
+```shell
+sed -i -E 's/"kubernetes>=[0-9]+,<[0-9]+"/"kubernetes>=34,<35"/' pyproject.toml && \
+uv lock
+```
 
 ### Debugging with vscode
 
@@ -128,10 +229,19 @@ For debugging, only the minio set-up is required.
 
 ## Container
 
+### Known Limitation: Manager Container Hardening
+
+The configurable `securityContext` described above applies to the **spawned job pods**, not to the manager pod itself.
+The manager container is **not** hardened (`runAsNonRoot` / `readOnlyRootFilesystem` are not set), because the `geopython/pygeoapi` base image runs as root, binds the privileged port 80, and writes `/pygeoapi/local.openapi.yml` at startup.
+Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would therefore require base-image changes (a non-root UID, a high port, and writable mounts) and is out of scope for this project.
+
+### Commands
+
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.23 \
+VERSION=0.27
+PYGEOAPI_VERSION=0.23.4
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
@@ -139,6 +249,7 @@ docker build \
   -t "${REGISTRY}/${IMAGE}:latest" \
   -t "${REGISTRY}/${IMAGE}:${VERSION}" \
   --build-arg VERSION="$VERSION" \
+  --build-arg PYGEOAPI_VERSION="$PYGEOAPI_VERSION" \
   --build-arg BUILD_DATE=$(date -u --iso-8601=seconds) \
   --build-arg GIT_COMMIT=$(git rev-parse --short=20 -q --verify HEAD) \
   --build-arg GIT_TAG=$(git describe --tags) \
@@ -153,7 +264,7 @@ Notice the **whitespace before the command** to prevent the secrets to be stored
 If the used shell does NOT support this, ensure another procedure to prevent leaking of the credentials
 
 ```shell
- REGISTRY=docker.io \
+REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 docker run \
   --env PYGEOAPI_K8S_MANAGER_NAMESPACE=default \
@@ -173,20 +284,40 @@ docker run \
 
 **Scan** the image for vulnerabilities
 
-```shell
-docker run -ti --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /tmp/aquasec-trivy-cache:/root/.cache/ \
-    aquasec/trivy:latest \
-    image \
-        --scanners vuln \
-        --format table \
-        --severity CRITICAL,HIGH \
-        --ignore-unfixed \
-        52north/pygeoapi-k8s-manager:latest
-```
+- **Without local trivy installation**:
 
-**Upload to registry** after [successful login](https://docs.otc.t-systems.com/software-repository-container/umn/image_management/uploading_an_image_through_the_client.html#procedure):
+  ```shell
+  docker run -ti --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /tmp/aquasec-trivy-cache:/root/.cache/ \
+      aquasec/trivy:latest \
+      image \
+          --scanners vuln \
+          --format table \
+          --severity CRITICAL,HIGH \
+          --ignore-unfixed \
+          52north/pygeoapi-k8s-manager:latest
+  ```
+
+- **With local trivy installation**:
+
+  ```shell
+  trivy image \
+      --scanners vuln \
+      --format table \
+      --severity CRITICAL,HIGH \
+      --ignore-unfixed \
+      52north/pygeoapi-k8s-manager:latest
+  ```
+
+**Vulnerability scanning policy**:
+
+The [CI pipeline](.github/workflows/build-pipeline.yaml) blocks the image push **only** on `CRITICAL`/`HIGH` vulnerabilities that have an available fix (`--ignore-unfixed`).
+Such a finding is reported internally to the maintainers.
+`MEDIUM`/`LOW` and unfixed vulnerabilities are **deliberately not gated**.
+For visibility, every release build publishes a non-blocking full Trivy report (all severities, including unfixed) as the CI artifact `trivy-report-full` (retained 180 days) for periodic or on-demand review.
+
+**Manual upload to registry** after successful docker login:
 
 ```shell
 docker push --all-tags 52north/pygeoapi-k8s-manager
@@ -246,11 +377,11 @@ The developments are based on [pygeoapi-kubernetes-papermill](https://github.com
 ## Funding
 
 The development of the "pygeoapi - kubernetes manager" implementation was supported by several organizations and projects.
-Among other we would like to thank the following organizations and projects
+We would like to thank the following organizations and projects, among others:
 
-|             Project/Logo             | Description                                                                                                                                                                                                                                                                                                                                |
-|:------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Project/Logo | Description |
+| :---: | :--- |
 | ![DIRECTED](./img/logo_directed.png) | [DIRECTED](https://52north.org/solutions/directed/) aims to reduce vulnerability to extreme weather events and foster disaster-resilient European societies by promoting interoperability of data, models, communication and governance on all levels and between all actors of the disaster risk management and climate adaptation process. |
-|   ![I-CISK](./img/logo_i-cisk.png)   | [I-CISK](https://52north.org/solutions/i-cisk/) will empower local communities to build and use tailored local Climate Services to adapt to climate change.                                                                                                                                                                                |
-| ![TwinShip](./img/twinship_logo.png) | [TwinShip](https://twin-ship.eu/) aims to reduce Greenhouse Gas emissions in international shipping. It is co-funded by the European Union’s Horizon Europe programme under grant agreement No. 101192583.                                                                                                                                 |
-|  ![WEB-AIS](./img/logo_web-ais.png)  | [WEB-AIS](https://52north.org/solutions/web-based-agricultural-information-system-webais-for-bangladesh/) aims for improving water management in Bangladesh in times of climate change impacts.                                                                                                                                                                                                            |
+| ![I-CISK](./img/logo_i-cisk.png) | [I-CISK](https://52north.org/solutions/i-cisk/) will empower local communities to build and use tailored local Climate Services to adapt to climate change. |
+| ![TwinShip](./img/twinship_logo.png) | [TwinShip](https://twin-ship.eu/) aims to reduce Greenhouse Gas emissions in international shipping. It is co-funded by the European Union’s Horizon Europe programme under grant agreement No. 101192583. |
+| ![WEB-AIS](./img/logo_web-ais.png) | [WEB-AIS](https://52north.org/solutions/web-based-agricultural-information-system-webais-for-bangladesh/) aims for improving water management in Bangladesh in times of climate change impacts. |

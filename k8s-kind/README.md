@@ -41,7 +41,7 @@ k8s-kind/$ kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k
 Check available images:
 
 ```shell
-k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl images
+k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl images | head -n3
 ```
 
 Delete image:

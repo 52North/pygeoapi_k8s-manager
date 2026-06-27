@@ -1,6 +1,6 @@
-name: "build push images of pygeoapi-k8s-manager"
+name: build push images of pygeoapi-k8s-manager
 concurrency:
-  group: "pygeoapi-k8s-manager"
+  group: pygeoapi-k8s-manager
   cancel-in-progress: true
 env:
   BUILD_CONTEXT: .
@@ -9,8 +9,10 @@ env:
   IMAGE_LICENSES: MIT
   IMAGE_TAG: 52north/pygeoapi-k8s-manager
   IMAGE_TITLE: 52°North pygeoapi with k8s-manager
-  IMAGE_VENDOR: 52°North GmbH
+  IMAGE_VENDOR: 52°North Spatial Information Research GmbH
+  IMAGE_URL: https://github.com/52North/pygeoapi_k8s-manager
   METADATA_TAG_PATTERN: v(.*)
+  PYGEOAPI_VERSION: 0.23.4
 on:
   workflow_dispatch:
     inputs:
@@ -24,19 +26,17 @@ on:
 
 jobs:
   push_to_docker_hub:
-    name: "pygeoapi-k8s-manager: build, publish and scan container image"
+    name: "pygeoapi-k8s-manager: build, scan, and publish"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
     -
       name: Checkout Repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     -
-      name: Set up Docker Buildkit env
-      uses: docker/setup-buildx-action@v4
-    -
-      name: Determine Branch or Tag
-      id: determine
+      name: Declare variables and resolve Tag
+      id: vars
+      shell: bash
       run: |
         if [[ "${{ github.ref }}" == refs/heads/* ]]; then
           echo "BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
@@ -45,6 +45,10 @@ jobs:
           echo "TAG=${{ github.ref_name }}" >> $GITHUB_ENV
           echo "BRANCH=build-by-tag" >> $GITHUB_ENV
         fi
+        echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+    -
+      name: Set up Docker Buildkit env
+      uses: docker/setup-buildx-action@v4
     -
       name: Extract metadata (tags, labels) for tagging Docker Image
       id: meta
@@ -53,22 +57,16 @@ jobs:
         images: "${{ env.IMAGE_TAG }}"
         labels: |
           "org.opencontainers.image.authors=${{ env.IMAGE_AUTHORS }}"
-          "org.opencontainers.image.vendor=${{ env.IMAGE_VENDOR }}"
           "org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}"
-          "org.opencontainers.image.title=${{ env.IMAGE_TITLE }}"
           "org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}"
+          "org.opencontainers.image.title=${{ env.IMAGE_TITLE }}"
+          "org.opencontainers.image.url=${{ env.IMAGE_URL }}"
+          "org.opencontainers.image.vendor=${{ env.IMAGE_VENDOR }}"
         tags: |
           type=match,pattern=${{ env.METADATA_TAG_PATTERN }},group=1,value=${{ github.event.inputs.tags }}
     -
-      name: Log in to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v4
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_TOKEN }}
-    -
       name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
     -
       name: Set up Python
       run: uv python install
@@ -76,41 +74,74 @@ jobs:
       name: Install the project
       run: uv sync --locked --all-extras --dev
     -
-      name: run linter and formatter
+      name: Run linter and formatter
       run: |
         uv run ruff check
         uv run ruff check --select I
         uv run ruff format --diff
     -
-      name: run tests
+      name: Run tests
       run: |
-        uv run pytest tests/
+        uv run pytest tests/ --cov=src/pygeoapi_k8s_manager --cov-report=term-missing
     -
-      name: Build and push Docker image
+      name: Build Docker image (local for scanning)
       uses: docker/build-push-action@v7
       with:
         context: "${{ env.BUILD_CONTEXT }}"
-        build-args: |
-          GIT_HASH=${{ github.sha }}
-          GIT_COMMIT=${{ github.sha }}
-          GIT_TAG=${{ env.TAG }}
-          GIT_BRANCH=${{ env.BRANCH }}
-          VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        load: true
+        push: false
+        tags: ${{ env.IMAGE_TAG }}:local-scan
         cache-from: type=gha
-        cache-to: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          GIT_BRANCH=${{ env.BRANCH }}
+          GIT_COMMIT=${{ github.sha }}
+          GIT_HASH=${{ github.sha }}
+          GIT_TAG=${{ env.TAG }}
+          VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
+          PYGEOAPI_VERSION=${{ env.PYGEOAPI_VERSION }}
+          BUILD_DATE=${{ steps.vars.outputs.build_date }}
     -
-      name: Run trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      name: Trivy full report
+      continue-on-error: true
+      # get latest version from https://github.com/aquasecurity/trivy-action/releases
+      uses: aquasecurity/trivy-action@v0.36.0
       env:
         TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
         TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
-        TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
+        TRIVY_DISABLE_VEX_NOTICE: "true"
       with:
-        scan-type: repo
-        scan-ref: '.'
+        scan-type: image
+        image-ref: '${{ env.IMAGE_TAG }}:local-scan'
+        format: table
+        output: trivy-report-full.txt
+        exit-code: '0'
+        ignore-unfixed: false
+        vuln-type: os,library
+        scanners: vuln
+        severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+    -
+      name: Upload full vulnerability report
+      continue-on-error: true
+      uses: actions/upload-artifact@v7
+      with:
+        name: trivy-report-full
+        path: trivy-report-full.txt
+        # current allowed maximum in this repository: 30 days
+        # requested: 180
+        retention-days: 30
+        if-no-files-found: warn
+    -
+      name: Run trivy vulnerability scanner
+      # get latest version from https://github.com/aquasecurity/trivy-action/releases
+      uses: aquasecurity/trivy-action@v0.36.0
+      env:
+        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
+        TRIVY_DISABLE_VEX_NOTICE: "true"
+      with:
+        scan-type: image
+        image-ref: '${{ env.IMAGE_TAG }}:local-scan'
         format: json
         output: trivy-results.json
         exit-code: '0'
@@ -119,7 +150,7 @@ jobs:
         scanners: vuln,secret,misconfig
         severity: CRITICAL,HIGH
     -
-      name: remove empty results
+      name: Remove empty results
       run: |
         vulnerabilities=$(cat trivy-results.json | jq 'if (.Results | length) == 0 then 0 else [.Results[].Vulnerabilities | length] | add end'); \
         if [[ "$vulnerabilities" -eq 0 ]]; then \
@@ -127,39 +158,70 @@ jobs:
         fi
     -
       if: ${{ hashFiles('trivy-results.json') != '' }}
-      name: 2nd scan to create human readable report
-      uses: aquasecurity/trivy-action@master
+      name: Convert JSON to human readable table
+      # get latest version from https://github.com/aquasecurity/trivy-action/releases
+      uses: aquasecurity/trivy-action@v0.36.0
       env:
-        TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
-        TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
-        TRIVY_DISABLE_VEX_NOTICE: disable_vex_notice
         TRIVY_FORMAT: table
-        TRIVY_OUTPUT: trivy-results.txt
+        TRIVY_DISABLE_VEX_NOTICE: "true"
       with:
-        image-ref: "${{ env.IMAGE_TAG }}"
-        format: 'table'
-        output: 'trivy-results.txt'
-        exit-code: '0'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
+        scan-type: convert
+        scan-ref: trivy-results.json
+        format: table
+        output: trivy-results.txt
     -
       if: ${{ hashFiles('trivy-results.txt') != '' }}
       name: Send Trivy Results to Google Chat
       env:
         WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
         REPO_NAME: ${{ github.repository }}
-        REPO_URL: "https://github.com/${{ github.repository }}/actions"
+        RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       run: |
-        CONTENT=$(cat trivy-results.txt | head -c 3800)
-        MESSAGE="Trivy Results for '${REPO_NAME}':\n\n\`\`\`\n${TRIVY_CONTENT}\n\`\`\`\n\n(Results truncated) Please review full report at: ${REPO_URL}"
-        JSON_PAYLOAD=$(jq -n --arg msg "$MESSAGE" '{text: $msg}')
+        CONTENT=$(head -n 35 trivy-results.txt)
+        JSON_PAYLOAD=$(jq -n \
+          --arg repo "$REPO_NAME" \
+          --arg content "$CONTENT" \
+          --arg url "$RUN_URL" \
+          '{text: "Trivy Vulnerability Scan Failed for \($repo) \n\n```\n\($content)\n```\n\n*(Results truncated. Please review full report at \($url) )*"}')
         curl -X POST -H 'Content-Type: application/json' "$WEBHOOK_URL" -d "$JSON_PAYLOAD"
+
+    -
+      if: ${{ hashFiles('trivy-results.txt') != '' }}
+      name: Halt Pipeline due to Vulnerabilities
+      run: |
+        echo "CRITICAL or HIGH vulnerabilities found!"
+        echo "Google Chat notification sent. Halting the pipeline to prevent unsafe image push."
+        exit 1
+    -
+      name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+    -
+      name: Push Docker image
+      if: github.event_name != 'pull_request'
+      uses: docker/build-push-action@v7
+      with:
+        context: "${{ env.BUILD_CONTEXT }}"
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,mode=max
+        build-args: |
+          GIT_BRANCH=${{ env.BRANCH }}
+          GIT_COMMIT=${{ github.sha }}
+          GIT_HASH=${{ github.sha }}
+          GIT_TAG=${{ env.TAG }}
+          VERSION=${{ env.DOCKER_METADATA_OUTPUT_VERSION }}
+          PYGEOAPI_VERSION=${{ env.PYGEOAPI_VERSION }}
+          BUILD_DATE=${{ steps.vars.outputs.build_date }}
     #
     # BEFORE ACTIVATING the deployment trigger, configure the according secrets
     # -
     #   name: Trigger redeployment
-    #   uses: actions/github-script@v7
+    #   uses: actions/github-script@v9
     #   with:
     #     github-token: ${{ secrets.GHA_WORKFLOW_TRIGGER }}
     #     script: |

@@ -29,6 +29,7 @@
 import pytest
 
 from pygeoapi_k8s_manager.process import GenericImageProcessor
+from pygeoapi_k8s_manager.util import ProcessorClientError
 
 
 @pytest.fixture()
@@ -56,7 +57,7 @@ def processor() -> GenericImageProcessor:
                         "type": "text/html",
                         "rel": "about",
                         "title": "repository",
-                        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/src/pygeoapi_k8s_manager/process/generic_image.py",  # noqa: E501
+                        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/src/pygeoapi_k8s_manager/process/generic_image.py",
                         "hreflang": "en-UK",
                     }
                 ],
@@ -65,7 +66,7 @@ def processor() -> GenericImageProcessor:
                         "title": "Name",
                         "description": "The name of the person or entity that you wish to be echoed back as an output",
                         "schema": {"type": "string"},
-                        "minOccurs": 1,
+                        "minOccurs": 0,
                         "maxOccurs": 1,
                         "keywords": ["full name", "personal"],
                     }
@@ -157,7 +158,7 @@ def test_processor_def_is_parsed(processor):
         "type": "text/html",
         "rel": "about",
         "title": "repository",
-        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/src/pygeoapi_k8s_manager/process/generic_image.py",  # noqa: E501
+        "href": "https://github.com/52North/pygeoapi_k8s-manager/tree/main/src/pygeoapi_k8s_manager/process/generic_image.py",
         "hreflang": "en-UK",
     }
     assert len(meta["inputs"]) == 1
@@ -165,7 +166,7 @@ def test_processor_def_is_parsed(processor):
         "title": "Name",
         "description": "The name of the person or entity that you wish to be echoed back as an output",
         "schema": {"type": "string"},
-        "minOccurs": 1,
+        "minOccurs": 0,
         "maxOccurs": 1,
         "keywords": ["full name", "personal"],
     }
@@ -203,11 +204,11 @@ def test_processor_def_is_parsed(processor):
     assert storage[0]["name"] == "test-storage-name"
     assert storage[0]["mount_path"] == "test-storage-mount-path"
     assert storage[0]["persistent_volume_claim_name"] == "test-storage-pvc-name"
-    assert "empty_dir" not in storage[0].keys()
+    assert "empty_dir" not in storage[0]
 
     assert storage[1]["name"] == "test-empty-dir-storage-name"
     assert storage[1]["mount_path"] == "test-empty-dir-storage-mount-path"
-    assert "persistent_volume_claim_name" not in storage[1].keys()
+    assert "persistent_volume_claim_name" not in storage[1]
     assert storage[1]["empty_dir"] == {}
 
     assert storage[2]["name"] == "test-empty-dir-storage-with-config-name"
@@ -216,7 +217,7 @@ def test_processor_def_is_parsed(processor):
         "size_limit": "test-empty-dir-storage-with-config-size-limit",
         "medium": "test-empty-dir-storage-with-config-medium",
     }
-    assert "persistent_volume_claim_name" not in storage[2].keys()
+    assert "persistent_volume_claim_name" not in storage[2]
 
 
 def test_outputs_mimetype_detection(processor):
@@ -442,3 +443,34 @@ def test_adds_init_containers(processor_with_init_containers):
     assert init_1.volume_mounts is None
     assert init_1.resources is None
     assert init_1.env is None
+
+
+@pytest.fixture()
+def processor_with_required_input() -> GenericImageProcessor:
+    return GenericImageProcessor(
+        processor_def={
+            "name": "test",
+            "metadata": {
+                "id": "required-input-process",
+                "inputs": {
+                    "region": {"schema": {"type": "string"}, "minOccurs": 1, "maxOccurs": 1},
+                },
+                "outputs": {},
+            },
+            "default_image": "example-image",
+            "resources": {"requests": {"memory": "16M", "cpu": "10m"}, "limits": {"memory": "64M", "cpu": "50m"}},
+        }
+    )
+
+
+def test_create_job_pod_spec_raises_on_missing_required_input(processor_with_required_input):
+    with pytest.raises(ProcessorClientError) as error:
+        processor_with_required_input.create_job_pod_spec(data={}, job_name="test-job-name")
+
+    assert error.match("Missing required input: 'region'")
+
+
+def test_create_job_pod_spec_passes_with_valid_required_input(processor_with_required_input):
+    job_pod_spec = processor_with_required_input.create_job_pod_spec(data={"region": "eu-de"}, job_name="test-job-name")
+
+    assert job_pod_spec.pod_spec.containers[0].image == "example-image"

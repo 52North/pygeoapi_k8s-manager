@@ -30,6 +30,8 @@
 # pygeoapi-kubernetes-papermill is copyrighted by EOX IT Services GmbH
 # (https://eox.at) and published under the MIT license.
 # =================================================================
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -64,6 +66,7 @@ from kubernetes.client import (
     V1Toleration,
 )
 from kubernetes.client.rest import ApiException
+from kubernetes.config.config_exception import ConfigException
 from pygeoapi.process.base import (
     BaseProcessor,
     JobNotFoundError,
@@ -100,6 +103,30 @@ K8S_ANNOTATION_KEY_JOB_START = "started"
 K8S_ANNOTATION_KEY_JOB_END = "finished"
 K8S_ANNOTATION_KEY_JOB_UPDATED = "updated"
 
+AUTH_TOKEN_INPUT_KEY = "token"
+
+ENV_POD_SECURITY_CONTEXT = "PYGEOAPI_K8S_MANAGER_JOB_POD_SECURITY_CONTEXT"
+ENV_CONTAINER_SECURITY_CONTEXT = "PYGEOAPI_K8S_MANAGER_JOB_CONTAINER_SECURITY_CONTEXT"
+DEFAULT_POD_SECURITY_CONTEXT = {"seccompProfile": {"type": "RuntimeDefault"}}
+DEFAULT_CONTAINER_SECURITY_CONTEXT = {
+    "allowPrivilegeEscalation": False,
+    "capabilities": {"drop": ["ALL"]},
+}
+
+
+def _security_context_from_env(env_key: str, default: dict) -> dict | None:
+    raw = os.getenv(env_key)
+    if raw is None:
+        return default
+    if raw.strip().lower() in ("", "off", "none"):
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        msg = f"Invalid JSON in env '{env_key}'; refusing to start jobs with an undefined security context."
+        LOGGER.error(msg)
+        raise ProcessorExecuteError(msg) from e
+
 
 class KubernetesProcessor(BaseProcessor):
     @dataclass()
@@ -109,15 +136,32 @@ class KubernetesProcessor(BaseProcessor):
 
     def __init__(self, processor_def, process_metadata):
         super().__init__(processor_def, process_metadata)
-        self.mimetype = processor_def["mimetype"] if "mimetype" in processor_def else "application/json"
-        self.tolerations: list = processor_def["tolerations"] if "tolerations" in processor_def else None
-        self.is_check_auth = processor_def["check_auth"] if "check_auth" in processor_def else None
+        self.mimetype = processor_def.get("mimetype", "application/json")
+        self.tolerations: list = processor_def.get("tolerations", None)
+        self.is_check_auth = processor_def.get("check_auth")
+        self.pod_security_context = processor_def.get(
+            "pod_security_context",
+            _security_context_from_env(ENV_POD_SECURITY_CONTEXT, DEFAULT_POD_SECURITY_CONTEXT),
+        )
+        self.container_security_context = processor_def.get(
+            "container_security_context",
+            _security_context_from_env(ENV_CONTAINER_SECURITY_CONTEXT, DEFAULT_CONTAINER_SECURITY_CONTEXT),
+        )
 
     def _add_tolerations(self, job_spec: JobPodSpec):
         if self.tolerations:
             tolerations: list[V1Toleration] = [V1Toleration(**toleration) for toleration in self.tolerations]
             job_spec.pod_spec.tolerations = tolerations
         return job_spec
+
+    def _add_security_context(self, job_spec: JobPodSpec) -> None:
+        if self.pod_security_context is not None:
+            job_spec.pod_spec.security_context = self.pod_security_context
+        if self.container_security_context is not None:
+            containers = (job_spec.pod_spec.containers or []) + (job_spec.pod_spec.init_containers or [])
+            for container in containers:
+                if container.security_context is None:
+                    container.security_context = self.container_security_context
 
     def check_auth(self) -> bool:
         """
@@ -169,9 +213,8 @@ class KubernetesManager(BaseManager):
         else:
             try:
                 k8s_config.load_kube_config()
-            except Exception as e:
-                LOGGER.error(e)
-                # load_kube_config might throw anything
+            except ConfigException as e:
+                LOGGER.debug(f"No usable kube config ('{e}'), falling back to in-cluster config.")
                 k8s_config.load_incluster_config()
 
             self.namespace = current_namespace()
@@ -257,7 +300,7 @@ class KubernetesManager(BaseManager):
             "numberMatched": number_matched,
         }
 
-    def get_job(self, job_id) -> Optional[JobDict]:
+    def get_job(self, job_id) -> JobDict | None:
         """
         Returns the actual output from a completed process
 
@@ -284,7 +327,7 @@ class KubernetesManager(BaseManager):
             else:
                 raise
 
-    def get_job_result(self, job_id) -> tuple[Optional[Any], Optional[str]]:
+    def get_job_result(self, job_id) -> tuple[Any | None, str | None]:
         """
         Returns the actual output from a completed process
 
@@ -321,10 +364,10 @@ class KubernetesManager(BaseManager):
         # another function that supports/expects k8s Processors only!
         job_id,
         data_dict: dict,
-        requested_outputs: Optional[dict] = None,
-        subscriber: Optional[Subscriber] = None,
+        requested_outputs: dict | None = None,
+        subscriber: Subscriber | None = None,
         requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
-    ) -> tuple[Optional[str], Optional[Any], JobStatus]:
+    ) -> tuple[str | None, Any | None, JobStatus]:
         """
         Synchronous execution handler
 
@@ -363,8 +406,8 @@ class KubernetesManager(BaseManager):
         p: KubernetesProcessor,
         job_id,
         data_dict,
-        requested_outputs: Optional[dict] = None,
-        subscriber: Optional[Subscriber] = None,
+        requested_outputs: dict | None = None,
+        subscriber: Subscriber | None = None,
         requested_response: Optional[RequestedResponse] = RequestedResponse.raw.value,  # noqa
     ) -> tuple[str, dict, JobStatus]:
         """
@@ -384,8 +427,9 @@ class KubernetesManager(BaseManager):
         if p.check_auth():
             self._check_auth_token(data_dict)
 
+        job_inputs = {k: v for k, v in data_dict.items() if k != AUTH_TOKEN_INPUT_KEY}
         add_finalizer = self.finalizer_controller is not None
-        job = create_job_body(p, job_id, data_dict, add_finalizer)
+        job = create_job_body(p, job_id, job_inputs, add_finalizer)
 
         LOGGER.debug(f"Trying to create job in namespace '{self.namespace}': '{job}")
         created_job = self.batch_v1.create_namespaced_job(body=job, namespace=self.namespace)
@@ -394,19 +438,25 @@ class KubernetesManager(BaseManager):
 
     def _check_auth_token(self, data_dict: dict):
         key = "PYGEOAPI_K8S_MANAGER_API_TOKEN"
-        token = data_dict["token"] if "token" in data_dict.keys() else None
+        token = data_dict.get(AUTH_TOKEN_INPUT_KEY)
         if token is None:
             msg = "ACCESS DENIED: no token supplied!"
             LOGGER.error(msg)
             raise ProcessorExecuteError(msg)
 
-        if token != os.getenv(key):
+        expected = os.getenv(key)
+        if not expected:
+            LOGGER.error("ACCESS DENIED: server-side API token is not configured!")
+            raise ProcessorExecuteError("ACCESS DENIED: authentication is not configured!")
+
+        if not hmac.compare_digest(_token_digest(token), _token_digest(expected)):
             msg = "ACCESS DENIED: wrong token supplied!"
             LOGGER.error(msg)
-            LOGGER.debug(
-                f"WRONG INTERNAL API TOKEN '{token}' ('{type(token)}') != '{os.getenv(key)}' ('{type(os.getenv(key))}')"
-            )
             raise ProcessorExecuteError(msg)
+
+
+def _token_digest(value: str) -> bytes:
+    return hashlib.sha256(value.encode("utf-8")).digest()
 
 
 def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_finalizer: bool = False) -> V1Job:
@@ -418,6 +468,8 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
 
     if p.tolerations is not None and len(p.tolerations) > 0:
         job_pod_spec = p._add_tolerations(job_pod_spec)
+
+    p._add_security_context(job_pod_spec)
 
     job_pod_spec.pod_spec = add_metadata_env(job_pod_spec.pod_spec, job_id, p.metadata.get("id"))
 
@@ -431,6 +483,12 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
         **job_pod_spec.extra_annotations,
     }
 
+    if "parameters" in annotations:
+        try:
+            annotations["parameters"] = json.dumps(hide_secret_values(json.loads(annotations["parameters"])))
+        except json.JSONDecodeError:
+            LOGGER.error("can't mask parameters annotation, not valid json", exc_info=True)
+
     return V1Job(
         api_version="batch/v1",
         kind="Job",
@@ -441,7 +499,7 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
         spec=V1JobSpec(
             template=V1PodTemplateSpec(
                 # metadata=V1ObjectMeta(labels=job_pod_spec.extra_labels),
-                metadata=V1ObjectMeta(finalizers=[format_log_finalizer()] if add_finalizer is not None else None),
+                metadata=V1ObjectMeta(finalizers=[format_log_finalizer()] if add_finalizer else None),
                 spec=job_pod_spec.pod_spec,
             ),
             backoff_limit=0,
@@ -478,7 +536,7 @@ def add_metadata_env(pod_spec: V1PodSpec, job_id: str, process_id: str) -> V1Pod
     return pod_spec
 
 
-def job_message(namespace: str, job: V1Job) -> Optional[str]:
+def job_message(namespace: str, job: V1Job) -> str | None:
     if job_status_from_k8s(job.status) == JobStatus.accepted:
         # if a job is in state accepted, it means that it can run right now
         # and the events can show why that is
@@ -489,41 +547,40 @@ def job_message(namespace: str, job: V1Job) -> Optional[str]:
         if items := events.items:
             return items[-1].message
 
-    if pod := pod_for_job(namespace, job):
-        # everything can be null in kubernetes, even empty lists
-        if pod.status.container_statuses:
-            # we check only the state of the first container, because
-            # our job pods only have one container at the moment
-            state: V1ContainerState = pod.status.container_statuses[0].state
-            interesting_states = [s for s in (state.waiting, state.terminated) if s]
-            if interesting_states:
-                return ": ".join(
-                    filter(
-                        None,
-                        (
-                            interesting_states[0].reason,
-                            interesting_states[0].message,
-                        ),
-                    )
+    # everything can be null in kubernetes, even empty lists
+    if (pod := pod_for_job(namespace, job)) and pod.status.container_statuses:
+        # we check only the state of the first container, because
+        # our job pods only have one container at the moment
+        state: V1ContainerState = pod.status.container_statuses[0].state
+        interesting_states = [s for s in (state.waiting, state.terminated) if s]
+        if interesting_states:
+            return ": ".join(
+                filter(
+                    None,
+                    (
+                        interesting_states[0].reason,
+                        interesting_states[0].message,
+                    ),
                 )
+            )
     return None
 
 
-def pod_for_job_id(namespace: str, job_id: str) -> Optional[V1Pod]:
+def pod_for_job_id(namespace: str, job_id: str) -> V1Pod | None:
     label_selector = f"job-name={format_job_name(job_id)}"
     LOGGER.debug(f"label_selector: '{label_selector}'")
     pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
     return next(iter(pods.items), None)
 
 
-def pod_for_job(namespace: str, job: V1Job) -> Optional[V1Pod]:
+def pod_for_job(namespace: str, job: V1Job) -> V1Pod | None:
     label_selector = ",".join(f"{key}={value}" for key, value in job.spec.selector.match_labels.items())
     pods: V1PodList = CoreV1Api().list_namespaced_pod(namespace=namespace, label_selector=label_selector)
 
     return next(iter(pods.items), None)
 
 
-def job_from_k8s(job: V1Job, message: Optional[str]) -> JobDict:
+def job_from_k8s(job: V1Job, message: str | None) -> JobDict:
     """
     Converts k8s::job to pygeoapi::job
     """
@@ -590,7 +647,7 @@ def get_start_time_from_job(job: V1Job) -> str:
     return start_time
 
 
-def get_completion_time(job: V1Job) -> Optional[datetime]:
+def get_completion_time(job: V1Job) -> datetime | None:
     if job_status_from_k8s(job.status) == JobStatus.failed:
         # failed jobs have special completion time field
         return max(

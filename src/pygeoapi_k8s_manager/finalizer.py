@@ -102,9 +102,16 @@ class KubernetesFinalizerController:
                             LOGGER.debug("Finished inner watch")
 
                         except ApiException as e:
+                            if e.status in (401, 403):
+                                # auth/RBAC error is unrecoverable without a config change;
+                                # stop the controller instead of resyncing forever
+                                LOGGER.error(
+                                    f"Watching jobs failed with HTTP status '{e.status}' (auth/RBAC). "
+                                    "Stopping the finalizer controller. Check the ServiceAccount permissions."
+                                )
+                                return
                             LOGGER.error("Api Exception received. Resetting resource_version and trigger resyncing.")
                             LOGGER.debug(f"Received: {e}")
-                            # FIXME raise or rethrow if 403 forbidden
                             self.resource_version = None
                             break
 
@@ -235,7 +242,7 @@ class KubernetesFinalizerController:
     def upload_logs_to_s3(self, job_name: str, logs: str, s3: BaseClient | None = None) -> None:
         LOGGER.debug("Upload logs of pod")
         #
-        # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION # noqa: E501
+        # see https://docs.aws.amazon.com/cli/v1/userguide/cli-configure-envvars.html#envvars-list-AWS_REQUEST_CHECKSUM_CALCULATION
         #
         #
         os.environ["AWS_REQUEST_CHECKSUM_CALCULATION"] = "when_required"

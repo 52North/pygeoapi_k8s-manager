@@ -1,2 +1,8 @@
 [run]
 omit = *\__init__.py
+
+[report]
+show_missing = True
+# Floor below the current ~86%; only enforced when a coverage report is produced
+# (i.e. CI runs pytest with --cov); local partial runs without --cov are unaffected.
+fail_under = 85

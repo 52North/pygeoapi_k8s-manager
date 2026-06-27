@@ -1,4 +1,8 @@
-FROM geopython/pygeoapi:0.23.0
+ARG PYGEOAPI_VERSION=0.23.4
+
+FROM geopython/pygeoapi:${PYGEOAPI_VERSION}
+
+ARG VERSION=0.27
 
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
@@ -21,15 +25,13 @@ RUN apt-get update \
 
 WORKDIR /k8s-manager
 
-ARG VERSION=0.23
 LABEL org.opencontainers.image.version="${VERSION}"
 
 COPY . .
-RUN sed -i "s/^version = .*/version = \"${VERSION:-0.15}\"/" pyproject.toml
+RUN sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
-    uv pip install --python /venv --group docker \
-&& uv build --sdist \
+    uv build --sdist \
 && uv pip install --python /venv "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" \
 && rm -rv /k8s-manager \
 && rm -rv /root/.cache
@@ -56,6 +58,7 @@ RUN touch "${INFO_FILE}" \
  && echo "git branch: $GIT_BRANCH" >> "$INFO_FILE" \
  && echo "git tag: $GIT_TAG" >> "$INFO_FILE" \
  && echo "pygeoapi: $(/venv/bin/pygeoapi --version)" >> "$INFO_FILE" \
+ && echo "kubernetes client: $(/venv/bin/python -c 'from importlib.metadata import version; print(version("kubernetes"))')" >> "$INFO_FILE" \
  && cat "${INFO_FILE}"
 
 RUN sed -i '/{{ version }}/a \
