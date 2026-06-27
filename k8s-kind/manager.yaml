@@ -40,11 +40,11 @@ spec:
           # configure log finalizer
           #
         - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_ENDPOINT
-          value: http://minio.default.svc.cluster.local:9000
+          value: http://garage.default.svc.cluster.local:9000
         - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_KEY
-          value: minio_admin
+          value: garage_admin
         - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_SECRET
-          value: minio_admin
+          value: garage_admin
         - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_NAME
           value: test-bucket
         - name: PYGEOAPI_K8S_MANAGER_FINALIZER_BUCKET_PATH_PREFIX
