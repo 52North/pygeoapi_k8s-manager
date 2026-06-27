@@ -6,4 +6,4 @@ namespace: default
 resources:
   - configmap.yaml
   - manager.yaml
-  - minio.yaml
+  - garage.yaml
