@@ -30,6 +30,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 # =================================================================
+import copy
 import json
 import logging
 import shlex
@@ -47,7 +48,7 @@ PROCESS_METADATA = {
     "version": "0.1.0",
     "id": "hello-world-k8s",
     "title": {
-        "en": "Hello World k8s",
+        "en": "Hello World K8s",
     },
     "description": {
         "en": "An example process that takes a name as input, and echoes "
@@ -123,7 +124,10 @@ class HelloWorldK8sProcessor(KubernetesProcessor):
         name: str
 
     def __init__(self, processor_def: dict):
-        super().__init__(processor_def, PROCESS_METADATA)
+        metadata = copy.deepcopy(PROCESS_METADATA)
+        if "metadata" in processor_def:
+            metadata.update(processor_def["metadata"])
+        super().__init__(processor_def, metadata)
 
         self.supports_outputs = True
         self.default_image: str = processor_def.get("default_image", "busybox")
