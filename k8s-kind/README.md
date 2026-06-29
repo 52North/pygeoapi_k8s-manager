@@ -36,6 +36,31 @@ k8s-kind/$ docker tag 52north/pygeoapi-k8s-manager:latest 52north/pygeoapi-k8s-m
 k8s-kind/$ kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k8s-manager:local
 ```
 
+### Pull and Load Demo Use Case Images
+
+You can ignore these steps, if always have a good internet connection.
+This will pull the images not only into the temporary kind control plane not, but in your local docker engine, too.
+
+Pull the images to your local engine:
+
+```shell
+echo "quay.io/minio/minio:latest
+      quay.io/minio/mc:latest
+      docker.io/bash:latest
+      docker.io/busybox:latest" | \
+      xargs -P10 -n1 docker pull
+```
+
+Load images into temporal kind control plane node:
+
+```shell
+echo "quay.io/minio/minio:latest
+      quay.io/minio/mc:latest
+      docker.io/bash:latest
+      docker.io/busybox:latest" | \
+      xargs -P10 -n1 kind load docker-image --name pygeoapi-k8s-manager
+```
+
 ### Kind image management (for debugging)
 
 Check available images:
@@ -64,6 +89,8 @@ k8s-kind/$ kubectl apply -k .
 ```
 
 ## Create Bucket in Minio
+
+*Here*: This is not required, if the according job `minio-bucket-init` is executed successfully.
 
 1. Open <http://localhost:30100/>.
 
