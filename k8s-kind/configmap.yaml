@@ -89,14 +89,24 @@ data:
         type: process
         processor:
           name: pygeoapi_k8s_manager.process.HelloWorldK8sProcessor
+          metadata:
+            title:
+              en: "Hello World K8s - sleeping"
+            description:
+              en: "Like \"Hello World K8s\" - but sleeping for 30s before responding."
           command:
             - date
-            - echo start and now sleeping 10s
-            - sleep 10
+            - echo start and now sleeping 30s
+            - sleep 30
       hello-world-k8s-sleep-failing:
         type: process
         processor:
           name: pygeoapi_k8s_manager.process.HelloWorldK8sProcessor
+          metadata:
+            title:
+              en: "Hello World K8s - failing"
+            description:
+              en: "Like \"Hello World K8s - sleeping\" - but it will FAIL, ALWAYS."
           command:
             - date
             - echo start and now sleeping 10s

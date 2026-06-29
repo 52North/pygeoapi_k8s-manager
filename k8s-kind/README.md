@@ -22,7 +22,7 @@ Check cluster:
 k8s-kind/$ kubectl cluster-info --context kind-pygeoapi-k8s-manager
 ```
 
-## Prepare Docker Image
+## Prepare Docker Image(s)
 
 Build docker image as [outlined in the documentation](../README.md#container), but set the image tag `latest` to `local`:
 

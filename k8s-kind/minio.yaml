@@ -77,7 +77,7 @@ metadata:
 spec:
   backoffLimit: 0
   parallelism: 1
-  ttlSecondsAfterFinished: 300
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       initContainers:
@@ -86,7 +86,7 @@ spec:
         command: ['sh', '-c', 'until nc -z minio 9000; do date; echo waiting for minio; sleep 5; done;']
       containers:
       - name: create-bucket-and-path
-        image: minio/mc
+        image: quay.io/minio/mc:latest
         env:
         - name: MINIO_ACCESS_KEY
           value: minio_admin
