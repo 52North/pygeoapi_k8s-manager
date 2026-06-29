@@ -123,18 +123,16 @@ data:
             title:
               en: "Generic Image Processor Example"
             description:
-              en: "Example Configuration of Generic Image Processor"
+              en: "Example Configuration of Generic Image Processor using different inputs."
             keywords:
-              - generic image processor example
-              - example
-              - generic image processor
               - k8s
-              - k8s manager
               - KubernetesManager
+              - generic image processor
+              - example
             links:
               - type: text/html
                 rel: about
-                title: Processor Code Repository
+                title: Processor → Code Repository
                 href: https://github.com/52North/pygeoapi_k8s-manager/tree/main/src/pygeoapi_k8s_manager/process/generic_image.py
                 hreflang: en-UK
             inputs:
@@ -143,6 +141,34 @@ data:
                 description: identify yourself
                 schema:
                   type: string
+              test-string:
+                title: test string
+                description: test string input (optional)
+                minOccurs: 0
+                maxOccurs: 1
+                schema:
+                  type: string
+              test-boolean:
+                title: test boolean
+                description: test boolean input (optional)
+                minOccurs: 0
+                maxOccurs: 1
+                schema:
+                  type: boolean
+              test-integer:
+                title: test integer
+                description: test integer input (optional)
+                minOccurs: 0
+                maxOccurs: 1
+                schema:
+                  type: integer
+              test-number:
+                title: test number
+                description: test floating point input (mandatory)
+                minOccurs: 1
+                maxOccurs: 1
+                schema:
+                  type: number
             outputs:
               logs:
                 title: logs
@@ -153,13 +179,17 @@ data:
             example:
               inputs:
                 token: token
+                test-string: a string to test
+                test-boolean: True
+                test-integer: 42
+                test-number: 42.52
           default_image: bash:latest
           # OPTIONAL
           # image_pull_secret: default-secret
           command:
             - bash
             - -c
-            - "date; env | sort"
+            - "echo PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:text/plain; echo PYGEOAPI_K8S_MANAGER_RESULT_START; date; sleep 10s; date; env | sort -h"
           env:
             # env from secrets (requires existing secrets in k8s cluster!)
             # - name: EXAMPLE_ENV_FROM_SECRET

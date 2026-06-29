@@ -135,6 +135,25 @@ curl -v -X 'POST' \
       }'
 ```
 
+Generic Image Processor with different types:
+
+```shell
+curl -v -X 'POST' \
+  'http://localhost:30080/pygeoapi/processes/generic-image-processor-example/execution' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -H 'Prefer: respond-async' \
+  -d '{
+        "inputs": {
+          "token": "do_not_use_in_production",
+          "test-string": "this is my test-string",
+          "test-boolean": true,
+          "test-integer": -272,
+          "test-number": 19.2340
+        }
+      }'
+```
+
 ## Remove cluster
 
 Execute the following command to clean-up the cluster and its configuration:
