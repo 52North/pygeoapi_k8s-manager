@@ -10,9 +10,9 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "boto3>=1.43.36",
+    "boto3>=1.43.44",
     "botocore>=1.38.37",
-    "filelock>=3.29.4",
+    "filelock>=3.29.7",
     "kubernetes>=33,<34",
     "pygeoapi==0.23.4",
 ]
