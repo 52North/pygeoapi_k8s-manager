@@ -185,7 +185,7 @@ Files to adjust:
 - **pygeoapi**
 
   ```shell
-  PYGEOAPI_VERSION=0.23.4
+  PYGEOAPI_VERSION=0.23.5
   sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
   sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
   sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
@@ -196,7 +196,7 @@ Files to adjust:
 - **pygeoapi-k8s-manager**
 
   ```shell
-  VERSION=0.27
+  VERSION=0.28
   sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml && \
   sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Dockerfile && \
   sed -i -E "s/^([[:space:]]*)VERSION=.*/\1VERSION=${VERSION}/" README.md && \
@@ -240,8 +240,8 @@ Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would theref
 **Build** the latest container image with docker using the following command:
 
 ```shell
-VERSION=0.27
-PYGEOAPI_VERSION=0.23.4
+VERSION=0.28
+PYGEOAPI_VERSION=0.23.5
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \
@@ -315,7 +315,7 @@ docker run \
 The [CI pipeline](.github/workflows/build-pipeline.yaml) blocks the image push **only** on `CRITICAL`/`HIGH` vulnerabilities that have an available fix (`--ignore-unfixed`).
 Such a finding is reported internally to the maintainers.
 `MEDIUM`/`LOW` and unfixed vulnerabilities are **deliberately not gated**.
-For visibility, every release build publishes a non-blocking full Trivy report (all severities, including unfixed) as the CI artifact `trivy-report-full` (retained 180 days) for periodic or on-demand review.
+For visibility, every release build publishes a non-blocking full Trivy report (all severities, including unfixed) as the CI artifact `trivy-report-full` (retained 30 days) for periodic or on-demand review.
 
 **Manual upload to registry** after successful docker login:
 
