@@ -14,7 +14,7 @@ dependencies = [
     "botocore>=1.38.37",
     "filelock>=3.30.0",
     "kubernetes>=33,<34",
-    "pygeoapi==0.23.4",
+    "pygeoapi==0.23.5",
 ]
 
 [build-system]
