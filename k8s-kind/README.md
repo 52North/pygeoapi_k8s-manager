@@ -30,12 +30,6 @@ Build docker image as [outlined in the documentation](../README.md#container), b
 k8s-kind/$ docker tag 52north/pygeoapi-k8s-manager:latest 52north/pygeoapi-k8s-manager:local
 ```
 
-[Load docker image](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster) into kind cluster:
-
-```shell
-k8s-kind/$ kind load docker-image --name pygeoapi-k8s-manager 52north/pygeoapi-k8s-manager:local
-```
-
 ### Pull and Load Demo Use Case Images
 
 You can ignore these steps, if always have a good internet connection.
@@ -51,10 +45,11 @@ echo "quay.io/minio/minio:latest
       xargs -P10 -n1 docker pull
 ```
 
-Load images into temporal kind control plane node:
+[Load docker image](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster) into kind cluster control plane node:
 
 ```shell
-echo "quay.io/minio/minio:latest
+echo "52north/pygeoapi-k8s-manager:local
+      quay.io/minio/minio:latest
       quay.io/minio/mc:latest
       docker.io/bash:latest
       docker.io/busybox:latest" | \
@@ -66,7 +61,7 @@ echo "quay.io/minio/minio:latest
 Check available images:
 
 ```shell
-k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl images | head -n3
+k8s-kind/$ docker exec -it pygeoapi-k8s-manager-control-plane crictl images
 ```
 
 Delete image:
@@ -91,6 +86,12 @@ k8s-kind/$ kubectl apply -k .
 ## Create Bucket in Minio
 
 *Here*: This is not required, if the according job `minio-bucket-init` is executed successfully.
+
+1. Verify `minio-bucket-init` job result:
+
+   ```shell
+   kubectl get jobs --watch
+   ```
 
 1. Open <http://localhost:30100/>.
 
