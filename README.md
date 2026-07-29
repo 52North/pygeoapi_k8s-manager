@@ -187,7 +187,7 @@ Files to adjust:
 - **pygeoapi**
 
   ```shell
-  PYGEOAPI_VERSION=0.23.5
+  PYGEOAPI_VERSION=0.24.0
   sed -i "s/^    \"pygeoapi==.*\",/    \"pygeoapi==${PYGEOAPI_VERSION}\",/" pyproject.toml && \
   sed -i "s/^ARG PYGEOAPI_VERSION=.*/ARG PYGEOAPI_VERSION=${PYGEOAPI_VERSION}/" Dockerfile && \
   sed -i "s/^  PYGEOAPI_VERSION: .*/  PYGEOAPI_VERSION: ${PYGEOAPI_VERSION}/" .github/workflows/build-pipeline.yaml && \
@@ -243,7 +243,7 @@ Enabling `runAsNonRoot` or `readOnlyRootFilesystem` for the manager would theref
 
 ```shell
 VERSION=0.28
-PYGEOAPI_VERSION=0.23.5
+PYGEOAPI_VERSION=0.24.0
 REGISTRY=docker.io \
 IMAGE=52north/pygeoapi-k8s-manager \
 ; \

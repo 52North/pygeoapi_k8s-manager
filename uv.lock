@@ -53,30 +53,30 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.43.56"
+version = "1.43.58"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/53/05/23e1aa8c9e4b0399a61e7fd65c4f9cc0625121f24760e37471f776404abb/boto3-1.43.56.tar.gz", hash = "sha256:57c90df9fb026f2e6ae22530861198130203733c5c9ec4e5cca3a4037f5a8db4", size = 112673, upload-time = "2026-07-24T19:31:48.606Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/95/bd6276870084c9c1a94e17d1dc73b2de275e59bd7a0ad8bfff0a1598cec4/boto3-1.43.58.tar.gz", hash = "sha256:12871fb50c383f1b9aa4ed6dd386ba689062baef730552e79d5a9cd782b53058", size = 112685, upload-time = "2026-07-28T19:35:09.336Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/57/3a960c9f581c00f2a591901b46e035ff79ab3956d16607f12306b3b8d483/boto3-1.43.56-py3-none-any.whl", hash = "sha256:feb699d4ab241ef5c1b80bb58277be2aaad365cd4b672d7817e0bc59ee45131b", size = 140026, upload-time = "2026-07-24T19:31:47.155Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/85/b0709066efb4ce7b86aba4092c739ad0e458be9d62cf32550fc4c130c93f/boto3-1.43.58-py3-none-any.whl", hash = "sha256:ce1a20cbcfaa1d0b3c8f568e2b6c7fbd34b842ea00e729d49a4b4de522828db9", size = 140026, upload-time = "2026-07-28T19:35:06.993Z" },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.43.56"
+version = "1.43.58"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/cc/7f84a5d3071fe878380e9f610ab36ca87b8cbbc4aa81ba2727f90e1f3ea3/botocore-1.43.56.tar.gz", hash = "sha256:6c01f85f0ff9863076f4c761e74ee3aa96c5ccc1ad09fc1efd62ef8f2d22bf57", size = 15733117, upload-time = "2026-07-24T19:31:38.125Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/64/5cd46a7e72b0647e6d78fc8da016259ad66b9ae0818f4c5d629c75e7ca49/botocore-1.43.58.tar.gz", hash = "sha256:e110ca53f65c128fe98df4d6d36a459b1db17c6114671c8a18becf151bf20909", size = 15742412, upload-time = "2026-07-28T19:34:57.468Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/cd/86fe9e659e9699f62f8dd5ecd8c6725474334b23cab8aa71d82b5f56f1a4/botocore-1.43.56-py3-none-any.whl", hash = "sha256:aafc741f1b10f6fd63253eaf6ea029680c1ff436d87e1b8969d62aefa0c76976", size = 15418773, upload-time = "2026-07-24T19:31:34.758Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/82/6f8fbbea47b773734ba0199643d2d851e5c2f75bc3699fe99db8af344d96/botocore-1.43.58-py3-none-any.whl", hash = "sha256:f516159f0732da8249206163ccea3bd1f82ad2a9d184fe6ed447e1abdba4330e", size = 15426503, upload-time = "2026-07-28T19:34:53.508Z" },
 ]
 
 [[package]]
@@ -873,7 +873,7 @@ wheels = [
 
 [[package]]
 name = "pygeoapi"
-version = "0.23.5"
+version = "0.24.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
@@ -895,9 +895,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "tinydb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b0/bd/627893d1170ec92230cbcbdc2bb76732e9977d2addf3564f657676802a45/pygeoapi-0.23.5.tar.gz", hash = "sha256:9f1456738a8851c582f7336159dfaaa96ca9704b9c554c0cc59d699042314359", size = 372861, upload-time = "2026-07-14T13:54:56.417Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/be/6c658b14b0b73a301ae7c71298a0046cbea7ba08f029a22fa0a11394b9b6/pygeoapi-0.24.0.tar.gz", hash = "sha256:00cf5c88776284780bb8bcc82f4f48c52d25ddfefc9ba1a65a8f3f811670a0a3", size = 386049, upload-time = "2026-07-28T12:12:17.028Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/68/c5d54267698706a90bed15230f4d948c99d838dd4fbdabf9586797e2415c/pygeoapi-0.23.5-py2.py3-none-any.whl", hash = "sha256:66ec6c466f00a2ec4af77b886bc4b046d70a2fde4cdf21021e551231db955e19", size = 578221, upload-time = "2026-07-14T13:54:55.025Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/f9/b5c7eb51bb73c102e331b7afdcb7413cb3e66418af4ad8910a19acf48caf/pygeoapi-0.24.0-py2.py3-none-any.whl", hash = "sha256:0ca8063121c19b86c90e896ed72758ce942be6c4a232062cc919ff7a8af36435", size = 599073, upload-time = "2026-07-28T12:12:15.854Z" },
 ]
 
 [[package]]
@@ -926,7 +926,7 @@ requires-dist = [
     { name = "botocore", specifier = ">=1.38.37" },
     { name = "filelock", specifier = ">=3.30.0" },
     { name = "kubernetes", specifier = ">=33,<34" },
-    { name = "pygeoapi", specifier = "==0.23.5" },
+    { name = "pygeoapi", specifier = "==0.24.0" },
 ]
 
 [package.metadata.requires-dev]
