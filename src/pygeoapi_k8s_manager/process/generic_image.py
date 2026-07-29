@@ -82,12 +82,12 @@ class GenericImageProcessor(KubernetesProcessor):
         self.image_pull_secrets: str = processor_def.get("image_pull_secrets")
         self.env: dict = processor_def.get("env", {})
         self.resources: dict = processor_def.get("resources")
-        self.mimetype: str = self._output_mimetype(processor_def["metadata"])
+        self.mimetype: str = self._mimetype(processor_def["metadata"])
         self.supports_outputs: bool = bool(self.mimetype)
         self.storage: dict = processor_def.get("storage")
         self.init_containers = processor_def.get("init_containers")
 
-    def _output_mimetype(self, metadata: dict) -> str:
+    def _mimetype(self, metadata: dict) -> str:
         """
         if no outputs -> None
         if one output -> contentMediaType

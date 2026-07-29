@@ -87,15 +87,14 @@ The set-up requires a secret `k8s-job-manager` with key `token` in the same name
 kubectl create secret generic -n default k8s-job-manager --from-literal=token=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 32; echo)
 ```
 
-## Job Logs Finalizer
+## Job Finalizer
 
-The manager comes with an built-in [k8s finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/) controller to handle the logs of the jobs and persist them in an s3 bucket.
+The manager comes with an built-in [k8s finalizer](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/) controller to handle the logs and the result mimetype plus value of the jobs.
 The according configuration requires the following environment variables and activation in the pygeoapi configuration.
 It is implemented in the `finalizer.py` module in the class `KubernetesFinalizerController`.
-In addition, this finalizer is used to persist the result mimetype and value.
 The logs are parsed during finalizing.
 The result mimetype is parsed from log statements with the marker: `PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE`.
-The according log line must contain this and split the mimetype with `:`, e.g. `[2025-06-23T13:00:18Z | pygeoapi_k8s_manager.process.generic_image::result_logging.py:97 | 14] INFO - PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE: application/json`.
+The according log line must contain this and split the mimetype with `:`, e.g. `[2025-06-23T13:00:18Z | pygeoapi_k8s_manager.process.generic_image::result_logging.py:97 | 14] INFO - PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:application/json`.
 The result value MUST be provided after a log statement with the marker `PYGEOAPI_K8S_MANAGER_RESULT_START`, e.g. parsing the following snippet results in the given result:
 
 - *Log Snippet*
@@ -131,6 +130,9 @@ server:
     finalizer_controller: true
 ```
 
+⚠️*Hint*:
+If the finalizer is not used, the result retrieval in the current state of development will always result in an JobResultNotFound error (see [`KubernetesManager.get_job_result()`](./src/pygeoapi_k8s_manager/manager.py)).
+
 **environment variables available**:
 
 | **name** | **comment** |
@@ -149,8 +151,8 @@ server:
 
 Ensure, that the bucket is **not publicly** available in the internet, because the logs might leak confidential information and should be consulted only by technical personnel.
 
-*Hint*: The controller will cancel the log file upload, if any of these variables is not configured and log errors.
-This will result in k8s resources **not being deleted, which requires manual interaction**!
+⚠️*Hint*:
+The controller will cancel the log file upload, if any of these variables is not configured and log errors.
 
 ## Development
 
@@ -259,8 +261,8 @@ docker build \
 
 **Run** the image locally for testing:
 
-*Hint*:
-Notice the **whitespace before the command** to prevent the secrets to be stored in the history of the shell.
+⚠️*Hint*:
+Add **a whitespace before the command** to prevent the secrets to be stored in the history of the shell.
 If the used shell does NOT support this, ensure another procedure to prevent leaking of the credentials
 
 ```shell

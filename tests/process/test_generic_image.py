@@ -222,8 +222,8 @@ def test_processor_def_is_parsed(processor):
 
 def test_outputs_mimetype_detection(processor):
     assert processor.mimetype == "test-output/mimetype"
-    assert processor._output_mimetype({}) is None
-    assert processor._output_mimetype({"outputs": {"output-one": {}, "output-two": {}}}) == "application/json"
+    assert processor._mimetype({}) is None
+    assert processor._mimetype({"outputs": {"output-one": {}, "output-two": {}}}) == "application/json"
 
 
 @pytest.fixture()

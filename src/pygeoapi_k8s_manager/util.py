@@ -65,6 +65,14 @@ def current_namespace():
             raise KeyError(f"Required environment variable '{ns_env_key}' is missing.") from e
 
 
+#
+# The first key is used by pygeoapi, hence do not change!
+#
+# https://github.com/geopython/pygeoapi/blob/e24e26de670d0856ace63d4003be3aac59668d74/pygeoapi/api/processes.py#L332
+#
+K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE = "mimetype"
+K8S_ANNOTATION_KEY_JOB_RESULT_VALUE = "result-value"
+
 _ANNOTATIONS_PREFIX = "pygeoapi.io/"
 
 

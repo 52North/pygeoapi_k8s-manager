@@ -270,7 +270,7 @@ def test_add_result_annotations_to_job(finalizer):
         body={
             "metadata": {
                 "annotations": {
-                    "pygeoapi.io/result-mimetype": "application/json",
+                    "pygeoapi.io/mimetype": "application/json",
                     "pygeoapi.io/result-value": '{"id": "pygeoapi-test-process-id","value": "result-value"}',
                 }
             }

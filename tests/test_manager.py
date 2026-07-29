@@ -310,6 +310,35 @@ def test_manager_get_job_result_raises_error_on_failed_job(manager, process_id):
     assert error.match(f"No results for job '{process_id}' with state '{state}' found.")
 
 
+def test_manager_get_job_result_raises_error_on_mimetype_and_or_value_annotations_are_none(manager, process_id):
+    job_state = "successful"
+    job = {"status": job_state}
+    k8s_job = MagicMock()
+    for annotations in (
+        {},
+        {format_annotation_key("result-mimetype"): "application/json"},
+        {format_annotation_key("result-value"): "test-value"},
+    ):
+        k8s_job.metadata.annotations = annotations
+        with (
+            pytest.raises(JobResultNotFoundError) as error,
+            patch.object(
+                KubernetesManager,
+                "get_k8s_job",
+                return_value=k8s_job,
+            ),
+            patch("pygeoapi_k8s_manager.manager.job_message", return_value=None),
+            patch(
+                "pygeoapi_k8s_manager.manager.job_from_k8s",
+                return_value=job,
+            ),
+        ):
+            manager.get_job_result(process_id)
+
+        assert error.type is JobResultNotFoundError
+        assert error.match(f"No results for job '{process_id}' with state '{job_state}' found")
+
+
 @pytest.fixture
 def mocked_pod():
     container = MagicMock()
@@ -327,7 +356,7 @@ def test_manager_get_job_result(manager, process_id, mocked_pod):
     job = {"status": "successful"}
     k8s_job = MagicMock()
     k8s_job.metadata.annotations = {
-        format_annotation_key("result-mimetype"): test_mimetype,
+        format_annotation_key("mimetype"): test_mimetype,
         format_annotation_key("result-value"): test_result,
     }
     with (
@@ -862,7 +891,7 @@ def test_execute_handler_sync_runs_until_successful(manager, job_id, mimetype):
 def test_get_job_result_parses_application_json(manager, process_id):
     k8s_job = MagicMock()
     k8s_job.metadata.annotations = {
-        format_annotation_key("result-mimetype"): "application/json",
+        format_annotation_key("mimetype"): "application/json",
         format_annotation_key("result-value"): '{"a": 1}',
     }
     with (

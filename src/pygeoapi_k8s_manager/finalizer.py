@@ -46,7 +46,14 @@ from kubernetes.client import (
     V1Pod,
 )
 
-from .util import format_annotation_key, format_log_finalizer, get_logs_for_pod, is_k8s_job_name
+from .util import (
+    K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE,
+    K8S_ANNOTATION_KEY_JOB_RESULT_VALUE,
+    format_annotation_key,
+    format_log_finalizer,
+    get_logs_for_pod,
+    is_k8s_job_name,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -212,7 +219,7 @@ class KubernetesFinalizerController:
         annotations = job.metadata.annotations if job.metadata.annotations else {}
         annotations.update(
             {
-                format_annotation_key("result-mimetype"): next(
+                format_annotation_key(K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE): next(
                     (
                         line.split("PYGEOAPI_K8S_MANAGER_RESULT_MIMETYPE:")[1].strip()
                         for line in logs.split("\n")
@@ -228,7 +235,7 @@ class KubernetesFinalizerController:
         )
         annotations.update(
             {
-                format_annotation_key("result-value"): "".join(
+                format_annotation_key(K8S_ANNOTATION_KEY_JOB_RESULT_VALUE): "".join(
                     line.strip() for line in (lines[result_value_start_index + 1 :] if result_value_start_index else [])
                 )
             }

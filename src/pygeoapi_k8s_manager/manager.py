@@ -85,6 +85,8 @@ from pygeoapi.util import (
 
 from .finalizer import KubernetesFinalizerController
 from .util import (
+    K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE,
+    K8S_ANNOTATION_KEY_JOB_RESULT_VALUE,
     JobDict,
     current_namespace,
     format_annotation_key,
@@ -348,10 +350,11 @@ class KubernetesManager(BaseManager):
                 f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found."
             )
         else:
-            mimetype = k8s_job.metadata.annotations[format_annotation_key("result-mimetype")]
-            value = k8s_job.metadata.annotations[format_annotation_key("result-value")]
-            LOGGER.debug(f"result-mimetype: '{mimetype}'")
-            LOGGER.debug(f"result-value: '{value}")
+            mimetype = k8s_job.metadata.annotations.get(format_annotation_key(K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE))
+            value = k8s_job.metadata.annotations.get(format_annotation_key(K8S_ANNOTATION_KEY_JOB_RESULT_VALUE))
+            LOGGER.debug(f"{K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE}: '{mimetype}'")
+            LOGGER.debug(f"{K8S_ANNOTATION_KEY_JOB_RESULT_VALUE}: '{value}")
+            # TODO Update README.md#job-finalizer, if this behaviour is changed!
             if mimetype is None or value is None:
                 raise JobResultNotFoundError(
                     f"No results for job '{job_id}' with state '{JobStatus[job['status']].value}' found."
@@ -479,7 +482,7 @@ def create_job_body(p: KubernetesProcessor, job_id: str, data_dict: dict, add_fi
         "process_id": p.metadata.get("id"),
         K8S_ANNOTATION_KEY_JOB_START: now,
         K8S_ANNOTATION_KEY_JOB_UPDATED: now,
-        "mimetype": p.mimetype if p.mimetype else "application/json",
+        K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE: p.mimetype if p.mimetype else "application/json",
         **job_pod_spec.extra_annotations,
     }
 
@@ -592,8 +595,8 @@ def job_from_k8s(job: V1Job, message: str | None) -> JobDict:
         parsed_key: v for orig_key, v in annotations.items() if (parsed_key := parse_annotation_key(orig_key))
     }
     LOGGER.debug(f"extracted pygeoapi annotations: '{metadata_from_annotation}'")
-    if "mimetype" not in metadata_from_annotation:
-        metadata_from_annotation["mimetype"] = "application/json"
+    if K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE not in metadata_from_annotation:
+        metadata_from_annotation[K8S_ANNOTATION_KEY_JOB_RESULT_MIMETYPE] = "application/json"
 
     try:
         metadata_from_annotation["parameters"] = json.dumps(
