@@ -1,6 +1,6 @@
 [project]
 name = "pygeoapi-k8s-manager"
-version = "0.29"
+version = "0.30"
 description = "Job manager for pygeoapi using k8s api server"
 readme = "README.md"
 license = { text = "Apache Software License 2.0"}
@@ -10,9 +10,9 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "boto3>=1.43.67",
-    "botocore>=1.38.37",
-    "filelock>=3.32.2",
+    "boto3>=1.43.101",
+    "botocore>=1.43.101",
+    "filelock>=4.2.0",
     "kubernetes>=33,<34",
     "pygeoapi==0.24.0",
 ]
@@ -24,7 +24,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "pytest-cov>=6.2.1",
-    "ruff>=0.16.2",
-    "time-machine>=3.3.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.1",
+    "time-machine>=3.5.1",
 ]

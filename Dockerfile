@@ -2,7 +2,7 @@ ARG PYGEOAPI_VERSION=0.24.0
 
 FROM geopython/pygeoapi:${PYGEOAPI_VERSION}
 
-ARG VERSION=0.29
+ARG VERSION=0.30
 
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
@@ -32,7 +32,7 @@ RUN sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
     uv build --sdist \
-&& uv pip install --python /venv "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" \
+&& uv pip install --python /venv "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" "s3fs>=2026.6.0" \
 && rm -rv /k8s-manager \
 && rm -rv /root/.cache
 
