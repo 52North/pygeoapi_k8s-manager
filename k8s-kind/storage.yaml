@@ -1,31 +1,31 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: minio-credentials
+  name: storage-credentials
 type: Opaque
 stringData:
-  MINIO_ROOT_USER: minio_admin
-  MINIO_ROOT_PASSWORD: minio_admin
+  MINIO_ROOT_USER: storage_admin
+  MINIO_ROOT_PASSWORD: storage_admin
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: minio
+  name: storage
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: minio
+      app: storage
   template:
     metadata:
       labels:
-        app: minio
+        app: storage
     spec:
       containers:
-      - name: minio
-        image: quay.io/minio/minio:latest
+      - name: storage
+        image: docker.io/pgsty/silo:latest
         args:
           - server
           - /data
@@ -33,7 +33,7 @@ spec:
           - ":9001"
         envFrom:
           - secretRef:
-              name: minio-credentials
+              name: storage-credentials
         ports:
           - containerPort: 9000
           - containerPort: 9001
@@ -55,11 +55,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: minio
+  name: storage
 spec:
   type: NodePort
   selector:
-    app: minio
+    app: storage
   ports:
     - name: api
       port: 9000
@@ -73,7 +73,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: minio-bucket-init
+  name: storage-bucket-init
 spec:
   backoffLimit: 0
   parallelism: 1
@@ -81,23 +81,23 @@ spec:
   template:
     spec:
       initContainers:
-      - name: wait-for-minio
+      - name: wait-for-storage
         image: busybox
-        command: ['sh', '-c', 'until nc -z minio 9000; do date; echo waiting for minio; sleep 5; done;']
+        command: ['sh', '-c', 'until nc -z storage 9000; do date; echo waiting for storage; sleep 5; done;']
       containers:
       - name: create-bucket-and-path
-        image: quay.io/minio/mc:latest
+        image: docker.io/pgsty/mc:latest
         env:
         - name: MINIO_ACCESS_KEY
-          value: minio_admin
+          value: storage_admin
         - name: MINIO_SECRET_KEY
-          value: minio_admin
+          value: storage_admin
         command: ["/bin/sh", "-c"]
         args:
           - |
-            mc alias set myminio http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-            mc mb --ignore-existing myminio/test-bucket
-            echo "init" | mc pipe myminio/test-bucket/k8s-manager/logs/init.txt
+            mc alias set mystorage http://storage:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+            mc mb --ignore-existing mystorage/test-bucket
+            echo "init" | mc pipe mystorage/test-bucket/k8s-manager/logs/init.txt
         resources:
           requests:
             memory: "32M"

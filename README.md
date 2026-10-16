@@ -227,7 +227,7 @@ uv lock
 
 The project come with vscode debug launch configuration, that works with the kind cluster configuration.
 The details can be found in the two folders in `.vscode/` and `k8s-kind/`.
-For debugging, only the minio set-up is required.
+For debugging, only the storage set-up (based on [SILO](https://github.com/pgsty/silo) [MinIO-compatible]) is required.
 
 ## Container
 

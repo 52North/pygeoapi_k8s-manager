@@ -38,8 +38,8 @@ This will pull the images not only into the temporary kind control plane not, bu
 Pull the images to your local engine:
 
 ```shell
-echo "quay.io/minio/minio:latest
-      quay.io/minio/mc:latest
+echo "docker.io/pgsty/silo:latest
+      docker.io/pgsty/mc:latest
       docker.io/bash:latest
       docker.io/busybox:latest" | \
       xargs -P10 -n1 docker pull
@@ -49,8 +49,8 @@ echo "quay.io/minio/minio:latest
 
 ```shell
 echo "52north/pygeoapi-k8s-manager:local
-      quay.io/minio/minio:latest
-      quay.io/minio/mc:latest
+      docker.io/pgsty/silo:latest
+      docker.io/pgsty/mc:latest
       docker.io/bash:latest
       docker.io/busybox:latest" | \
       xargs -P10 -n1 kind load docker-image --name pygeoapi-k8s-manager
@@ -83,11 +83,13 @@ Apply k8s manifests:
 k8s-kind/$ kubectl apply -k .
 ```
 
-## Create Bucket in Minio
+## Create Bucket in Storage
 
-*Here*: This is not required, if the according job `minio-bucket-init` is executed successfully.
+The storage is provided by [SILO](https://silo.pgsty.com/), a maintained MinIO-compatible fork (see the [migration guide](https://silo.pgsty.com/compatibility/migration/)).
 
-1. Verify `minio-bucket-init` job result:
+*Here*: This is not required, if the according job `storage-bucket-init` is executed successfully.
+
+1. Verify `storage-bucket-init` job result:
 
    ```shell
    kubectl get jobs --watch
@@ -95,7 +97,7 @@ k8s-kind/$ kubectl apply -k .
 
 1. Open <http://localhost:30100/>.
 
-1. Use credentials from [minio set-up](minio.yaml) and log-in.
+1. Use credentials from [storage set-up](storage.yaml) and log-in.
 
 1. Create a new bucket with name `test-bucket` by clicking on "Create Bucket" on the left.
 
