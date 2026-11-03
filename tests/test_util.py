@@ -241,7 +241,7 @@ def test_get_logs_for_pod_collects_init_and_main_containers():
     pod.spec.init_containers = [_container("init-0")]
     pod.spec.containers = [_container("main-0")]
     k8s_core_api = MagicMock()
-    k8s_core_api.read_namespaced_pod_log.return_value = "log-content"
+    k8s_core_api.read_namespaced_pod_log.return_value.data = b"log-content"
 
     logs = get_logs_for_pod(pod, k8s_core_api)
 
@@ -249,6 +249,23 @@ def test_get_logs_for_pod_collects_init_and_main_containers():
     assert "main-0" in logs
     assert "log-content" in logs
     assert k8s_core_api.read_namespaced_pod_log.call_count == 2
+    for call in k8s_core_api.read_namespaced_pod_log.call_args_list:
+        assert call.kwargs["_preload_content"] is False
+
+
+def test_get_logs_for_pod_decodes_raw_log_bytes():
+    pod = MagicMock()
+    pod.metadata.name = "test-pod"
+    pod.metadata.namespace = "test-ns"
+    pod.spec.init_containers = None
+    pod.spec.containers = [_container("main-0")]
+    k8s_core_api = MagicMock()
+    k8s_core_api.read_namespaced_pod_log.return_value.data = b"PYGEOAPI_K8S_MANAGER_RESULT_START\nZ\xc3\xbcrich\n"
+
+    logs = get_logs_for_pod(pod, k8s_core_api)
+
+    assert "b'" not in logs
+    assert logs.endswith("\nPYGEOAPI_K8S_MANAGER_RESULT_START\nZürich\n")
 
 
 def test_get_logs_for_pod_returns_none_when_no_logs():

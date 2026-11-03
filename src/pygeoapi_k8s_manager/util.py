@@ -212,6 +212,20 @@ def validate_process_inputs(
                 )
 
 
+def _read_container_log(pod: V1Pod, container_name: str, k8s_core_api: CoreV1Api) -> str | None:
+    # Read the raw response and decode it here: kubernetes client >= 34 returns
+    # str(bytes), i.e. "b'...'" with escaped newlines, for the "str" response type.
+    response = k8s_core_api.read_namespaced_pod_log(
+        name=pod.metadata.name,
+        namespace=pod.metadata.namespace,
+        container=container_name,
+        _preload_content=False,
+    )
+    if response is None or response.data is None:
+        return None
+    return response.data.decode("utf-8", errors="replace")
+
+
 def get_logs_for_pod(
     pod: V1Pod,
     k8s_core_api: CoreV1Api | None = None,
@@ -222,20 +236,12 @@ def get_logs_for_pod(
     logs = f"Logs of pod '{pod.metadata.name}'"
     if pod.spec.init_containers:
         for init_container in pod.spec.init_containers:
-            container_log = k8s_core_api.read_namespaced_pod_log(
-                name=pod.metadata.name,
-                namespace=pod.metadata.namespace,
-                container=init_container.name,
-            )
+            container_log = _read_container_log(pod, init_container.name, k8s_core_api)
             logs += f"\nInit Container '{init_container.name}'\n{container_log}"
             if container_log is not None:
                 received_logs_from_at_least_one_container = True
     for container in pod.spec.containers:
-        container_log = k8s_core_api.read_namespaced_pod_log(
-            name=pod.metadata.name,
-            namespace=pod.metadata.namespace,
-            container=container.name,
-        )
+        container_log = _read_container_log(pod, container.name, k8s_core_api)
         logs += f"\nContainer '{container.name}'\n{container_log}"
         if container_log is not None:
             received_logs_from_at_least_one_container = True
