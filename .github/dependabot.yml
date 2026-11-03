@@ -14,16 +14,12 @@ updates:
     schedule:
       # Check for updates to Python dependencies every week
       interval: "weekly"
+    # Only touch pyproject.toml when a new version falls outside the declared range. Raising
+    # lower bounds (e.g. botocore>=...) could exceed the botocore range pinned by aiobotocore
+    # (via s3fs); uv.lock updates stay within that range automatically.
+    versioning-strategy: "increase-if-necessary"
     groups:
       # Bundle all uv dependency updates into a single PR to reduce noise
       uv:
         patterns:
           - "*"
-    ignore:
-      # s3fs (fsspec, CVE-2026-104851) in the image requires aiobotocore, which pins botocore.
-      # aiobotocore 3.9.2 supports botocore < 1.43.107 only. Raise the bounds when a newer
-      # aiobotocore release supports newer botocore versions.
-      - dependency-name: "boto3"
-        versions: [">=1.43.107"]
-      - dependency-name: "botocore"
-        versions: [">=1.43.107"]

@@ -15,6 +15,7 @@ dependencies = [
     "filelock>=4.2.0",
     "kubernetes>=33,<34",
     "pygeoapi==0.24.0",
+    "s3fs>=2026.6.0",
 ]
 
 [build-system]
