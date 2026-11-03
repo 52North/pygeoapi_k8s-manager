@@ -30,9 +30,14 @@ LABEL org.opencontainers.image.version="${VERSION}"
 COPY . .
 RUN sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
 
+# Packages already in /venv are kept unless --upgrade-package is given.
+# numpy<2: uv ignores the Ubuntu packages (system site-packages)
+#          and would install numpy 2 into /venv
 RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
     uv build --sdist \
-&& uv pip install --python /venv "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" "s3fs>=2026.6.0" \
+&& uv pip install --python /venv --upgrade-package \
+     "numpy<2" \
+     "dist/pygeoapi_k8s_manager-${VERSION}.tar.gz" \
 && rm -rv /k8s-manager \
 && rm -rv /root/.cache
 
