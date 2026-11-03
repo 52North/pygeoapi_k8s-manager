@@ -4,6 +4,9 @@ on:
   schedule:
     # https://crontab.cronhub.io/
     - cron: '52 4 * * Mon'
+permissions:
+  contents: read
+  issues: write
 jobs:
   stale:
     runs-on: ubuntu-latest

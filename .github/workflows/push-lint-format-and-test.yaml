@@ -8,6 +8,8 @@ on:
     branches: ['**']
     tags-ignore: ['**']
   pull_request:
+permissions:
+  contents: read
 jobs:
   lint-format-and-test:
     runs-on: ubuntu-latest
