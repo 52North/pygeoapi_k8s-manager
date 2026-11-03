@@ -2,7 +2,7 @@ ARG PYGEOAPI_VERSION=0.24.0
 
 FROM geopython/pygeoapi:${PYGEOAPI_VERSION}
 
-ARG VERSION=0.30
+ARG VERSION=0.31
 
 LABEL maintainer="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
       org.opencontainers.image.authors="Jürrens, Eike Hinderk <e.h.juerrens@52north.org>" \
