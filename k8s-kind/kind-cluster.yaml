@@ -6,7 +6,7 @@ nodes:
     # Check
     #     https://github.com/kubernetes-sigs/kind/releases#user-content-new-features
     # for available versions matching you local kubectl version
-    image: kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355cfe09e96a91ead32ceaa569d3f1ca9edf0cb2fe2ff4
+    image: kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d
     extraPortMappings:
     - containerPort: 30080
       hostPort: 30080
