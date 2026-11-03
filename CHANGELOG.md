@@ -9,8 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI: GitHub Actions workflows declare explicit, minimal `permissions`.
+
+## [0.31] - 2026-11-03
+
+### Changed
+
 - `s3fs` >= 2026.6.0 is now a regular dependency instead of being installed separately in the container image. uv and Dependabot thereby keep boto3/botocore within the range supported by `aiobotocore`.
-- Kubernetes Python client 33 to 36 supported (`kubernetes>=33,<37`). Client 37 changed its model API and is not supported yet.
+- Kubernetes Python client 34 to 36 supported (`kubernetes>=34,<37`), raising the minimum from 33. Client 37 changed its model API and is not supported yet.
 - Dependabot: `versioning-strategy: increase-if-necessary` replaces the boto3/botocore ignore rules.
 - Updated locked dependencies, incl.
   - aiobotocore 3.10.0,
@@ -25,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ruff 0.17.3 (dev) and
   - time-machine 3.6.0 (dev).
 - CI: astral-sh/setup-uv v10.3.0 → v10.3.2.
+- Increased kind node version 1.33.12 → 1.34.11.
 
 ### Removed
 
@@ -33,7 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Container image: numpy 2 was installed into `/venv`, because `uv pip` ignores the Ubuntu python packages of the pygeoapi base image. This broke the Ubuntu builds of gdal, scipy, pandas, xarray and netCDF4 (affects 0.30). numpy is now restricted to < 2.
-- Container image: upgrade `aiohttp` (3.14.3, from the pygeoapi base image) to fix CVE-2026-111064, CVE-2026-111066 and GHSA-2g87-pp6c-29x5.
+- Container image: upgrade `aiohttp` (3.14.3, from the pygeoapi base image) to 3.14.5 to fix CVE-2026-111064, CVE-2026-111066 and GHSA-2g87-pp6c-29x5.
+- Pod logs were returned as the `repr` of the raw bytes (`b'...'` with escaped newlines) with Kubernetes client >= 34, which broke the logs and the job result extraction (`PYGEOAPI_K8S_MANAGER_RESULT_*`). Logs are now read raw and decoded as UTF-8.
 
 ## [0.30] - 2026-10-16
 
@@ -488,7 +496,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Mitigated CVEs of the base image OS.
 
-[Unreleased]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.30...HEAD
+[Unreleased]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.31...HEAD
+[0.31]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.30...v0.31
 [0.30]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.29...v0.30
 [0.29]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.28...v0.29
 [0.28]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.27...v0.28
