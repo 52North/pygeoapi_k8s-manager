@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `s3fs` >= 2026.6.0 is now a regular dependency instead of being installed separately in the container image. uv and Dependabot thereby keep boto3/botocore within the range supported by `aiobotocore`.
+- Kubernetes Python client 33 to 36 supported (`kubernetes>=33,<37`). Client 37 changed its model API and is not supported yet.
+- Dependabot: `versioning-strategy: increase-if-necessary` replaces the boto3/botocore ignore rules.
+- Updated locked dependencies, incl.
+  - aiobotocore 3.10.0,
+  - boto3/botocore 1.43.117,
+  - certifi 2026.10.23,
+  - filelock 4.2.7,
+  - kubernetes 36.0.3,
+  - pydantic 2.14.2,
+  - s3fs 2026.9.0,
+  - sqlalchemy 2.1.6,
+  - pytest 9.2.0 (dev),
+  - ruff 0.17.3 (dev) and
+  - time-machine 3.6.0 (dev).
+- CI: astral-sh/setup-uv v10.3.0 → v10.3.2.
+
+### Removed
+
+- Transitive dependencies cffi, cryptography, google-auth, pyasn1, pyasn1-modules and pycparser are no longer locked.
+
+### Fixed
+
+- Container image: numpy 2 was installed into `/venv`, because `uv pip` ignores the Ubuntu python packages of the pygeoapi base image. This broke the Ubuntu builds of gdal, scipy, pandas, xarray and netCDF4 (affects 0.30). numpy is now restricted to < 2.
+- Container image: upgrade `aiohttp` (3.14.3, from the pygeoapi base image) to fix CVE-2026-111064, CVE-2026-111066 and GHSA-2g87-pp6c-29x5.
+
 ## [0.30] - 2026-10-16
 
 ### Added
@@ -458,6 +488,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Mitigated CVEs of the base image OS.
 
+[Unreleased]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.30...HEAD
 [0.30]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.29...v0.30
 [0.29]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.28...v0.29
 [0.28]: https://github.com/52North/pygeoapi_k8s-manager/compare/v0.27...v0.28
